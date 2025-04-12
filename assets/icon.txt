@@ -1,0 +1,25 @@
+Icon Design Concept:
+
+A circular icon with:
+- A blue gradient background (#1E88E5 to #0D47A1)
+- A white portal/gateway symbol in the center
+- Three interconnected cloud shapes around the portal
+- A subtle grid pattern in the background
+
+The icon should be:
+- Clean and modern
+- Professional looking
+- Easily recognizable at small sizes
+- Reflective of both portal/management and cloud-native concepts
+
+Color Scheme:
+- Primary Blue: #1E88E5
+- Dark Blue: #0D47A1
+- White: #FFFFFF
+- Light Blue Accent: #64B5F6
+
+This design represents:
+- The portal/gateway symbol for the portal aspect
+- Cloud shapes for the cloud-native nature of Crossplane
+- Interconnected elements for resource management
+- Blue color scheme for trust and technology 

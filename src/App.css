@@ -1,0 +1,101 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.graph-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: rgb(249, 250, 251);
+}
+
+.graph-container .react-flow__renderer {
+  width: 100%;
+  height: 100%;
+}
+
+.graph-container .react-flow__controls {
+  transition: right 0.3s ease-in-out;
+}
+
+.graph-container .react-flow__minimap {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Adjust ReactFlow controls when panel is open */
+.graph-container:has(.resource-details-panel) .react-flow__controls {
+  right: 440px;
+}
+
+.graph-container:has(.resource-details-panel) .react-flow__renderer {
+  margin-right: 400px;
+}
+
+/* Default control positions */
+.react-flow__controls {
+  bottom: 40px !important;
+  right: 40px !important;
+  background: white !important;
+  border-radius: 8px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  padding: 4px !important;
+}
+
+.react-flow__controls button {
+  background: white !important;
+  border-radius: 4px !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #6b7280 !important;
+  padding: 4px !important;
+  margin: 2px !important;
+}
+
+.react-flow__controls button:hover {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+}
+
+.react-flow__minimap {
+  bottom: 40px !important;
+  left: 40px !important;
+}
