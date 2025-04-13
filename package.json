@@ -20,6 +20,7 @@
     "react-flow-renderer": "^10.3.17",
     "react-scripts": "5.0.1",
     "reactflow": "^11.10.4",
+    "styled-components": "^6.1.17",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -45,7 +46,9 @@
     },
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "assets/icon.icns",
       "hardenedRuntime": true,
       "entitlements": "entitlements.mac.plist",
