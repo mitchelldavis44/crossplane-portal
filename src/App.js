@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import ReactFlow, { Background, Controls, MiniMap, Handle } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { getKubeConfig, setContext, fetchCompositeResources, fetchResource } from './services/k8sService';
 import yaml from 'js-yaml';
+import TitleBar from './components/TitleBar';
 
 // Helper function to convert JSON to YAML - we use this for displaying resource details
 const toYAML = (obj) => {
@@ -1075,307 +1076,312 @@ export default function Home() {
   };
 
   return (
-    <main className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white/50 backdrop-blur-sm shrink-0">
-        <div className="flex items-center space-x-3">
-          <svg className="w-8 h-8 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-800">
-            Crossplane Portal
-          </h1>
-        </div>
-        <div className="flex items-center space-x-4">
-          {error && (
-            <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg">
-              {error}
-            </div>
-          )}
-          {(isLoading || isRefreshing) && (
-            <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-              <span className="text-sm text-gray-600">{isLoading ? 'Loading...' : 'Refreshing...'}</span>
-            </div>
-          )}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={refreshAll}
-              disabled={isLoading || isRefreshing}
-              className="flex items-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
-              title="Refresh contexts and resources"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    <div className="app-container">
+      <TitleBar />
+      <div className="content" style={{ marginTop: '28px' }}>
+        <main className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white/50 backdrop-blur-sm shrink-0">
+            <div className="flex items-center space-x-3">
+              <svg className="w-8 h-8 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span>Refresh</span>
-            </button>
-            <div className="flex items-center space-x-2">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={isPolling}
-                  onChange={(e) => setIsPolling(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-600">Auto-refresh</span>
-              </label>
-              <select
-                value={pollInterval}
-                onChange={(e) => setPollInterval(Number(e.target.value))}
-                className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 shadow-sm hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-                disabled={!isPolling}
-              >
-                <option value={10000}>10s</option>
-                <option value={30000}>30s</option>
-                <option value={60000}>1m</option>
-                <option value={300000}>5m</option>
-              </select>
+              <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-800">
+                Crossplane Portal
+              </h1>
             </div>
-            <select
-              value={currentContext}
-              onChange={(e) => handleContextChange(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-900 shadow-sm hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-              disabled={isLoading || isRefreshing}
-            >
-              {kubeContexts.map((context) => (
-                <option key={context.name} value={context.name}>
-                  {context.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full max-w-7xl mx-auto p-6">
-          <div className="h-full grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Left Column - Claims */}
-            <div className="h-full flex flex-col overflow-hidden">
-              <div className="flex items-center space-x-3 mb-6 shrink-0">
-                <svg className="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
-                <h2 className="text-2xl font-semibold text-gray-900">Claims</h2>
-              </div>
-              
-              <div className="shrink-0 mb-6">
-                {/* Namespace filter */}
-                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Namespace</label>
-                <div className="relative">
-                  <select
-                    value={selectedNamespace}
-                    onChange={(e) => setSelectedNamespace(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none appearance-none cursor-pointer"
-                  >
-                    <option value="all">All Namespaces</option>
-                    {namespaces.map((ns) => (
-                      <option key={ns} value={ns}>{ns}</option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
+            <div className="flex items-center space-x-4">
+              {error && (
+                <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg">
+                  {error}
                 </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto">
-                {/* Claims list */}
-                {Object.entries(claimsByNamespace).length > 0 ? (
-                  Object.entries(claimsByNamespace).map(([namespace, claims]) => (
-                    <div key={namespace} className="mb-6">
-                      <div className="flex items-center space-x-2 mb-3 bg-white rounded-lg px-4 py-2 shadow-sm">
-                        <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                        </svg>
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {namespace}
-                          <span className="ml-2 text-sm text-gray-500">({claims.length} resources)</span>
-                        </h3>
-                      </div>
-
-                      <div className="space-y-3">
-                        {claims.map((xr) => (
-                          <div
-                            key={xr.metadata.uid}
-                            onClick={() => handleSelectClaim(xr)}
-                            className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
-                          >
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-lg font-medium text-blue-600">{xr.metadata.name}</h4>
-                              <div className="flex items-center space-x-2">
-                                <div className="relative group">
-                                  <div className={`w-2 h-2 rounded-full ${xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
-                                  <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
-                                    <div className="font-medium">Ready: {xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'True' : 'False'}</div>
-                                    <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Ready')?.message || 'No status message available'}</div>
-                                    <div className="absolute bottom-0 right-0 transform translate-y-full">
-                                      <svg className="text-gray-900 h-2 w-full" viewBox="0 0 255 255" fill="currentColor">
-                                        <polygon className="fill-current" points="0,0 127.5,127.5 255,0" />
-                                      </svg>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="relative group">
-                                  <div className={`w-2 h-2 rounded-full ${xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
-                                  <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
-                                    <div className="font-medium">Synced: {xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'True' : 'False'}</div>
-                                    <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Synced')?.message || 'No status message available'}</div>
-                                    <div className="absolute bottom-0 right-0 transform translate-y-full">
-                                      <svg className="text-gray-900 h-2 w-full" viewBox="0 0 255 255" fill="currentColor">
-                                        <polygon className="fill-current" points="0,0 127.5,127.5 255,0" />
-                                      </svg>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="mt-2 text-sm text-gray-600">Kind: {xr.kind}</div>
-                            <div className="mt-1 text-xs text-gray-400">
-                              Created: {new Date(xr.metadata.creationTimestamp).toLocaleString()}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center p-6">
-                    <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                    </svg>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Claims Found</h3>
-                    <p className="text-gray-500 max-w-sm">
-                      There are no active claims in the current context. Claims will appear here when they are created.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column - XR Details */}
-            <div className="h-full flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <svg className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              )}
+              {(isLoading || isRefreshing) && (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span className="text-sm text-gray-600">{isLoading ? 'Loading...' : 'Refreshing...'}</span>
+                </div>
+              )}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={refreshAll}
+                  disabled={isLoading || isRefreshing}
+                  className="flex items-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                  title="Refresh contexts and resources"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  <h2 className="text-2xl font-semibold text-gray-900">XR Details</h2>
-                </div>
-                {selectedClaim && (
-                  <button
-                    onClick={() => setSelectedClaim(null)}
-                    className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Dismiss details"
+                  <span>Refresh</span>
+                </button>
+                <div className="flex items-center space-x-2">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={isPolling}
+                      onChange={(e) => setIsPolling(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Auto-refresh</span>
+                  </label>
+                  <select
+                    value={pollInterval}
+                    onChange={(e) => setPollInterval(Number(e.target.value))}
+                    className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 shadow-sm hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                    disabled={!isPolling}
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    <span>Dismiss</span>
-                  </button>
-                )}
+                    <option value={10000}>10s</option>
+                    <option value={30000}>30s</option>
+                    <option value={60000}>1m</option>
+                    <option value={300000}>5m</option>
+                  </select>
+                </div>
+                <select
+                  value={currentContext}
+                  onChange={(e) => handleContextChange(e.target.value)}
+                  className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-900 shadow-sm hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                  disabled={isLoading || isRefreshing}
+                >
+                  {kubeContexts.map((context) => (
+                    <option key={context.name} value={context.name}>
+                      {context.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+            </div>
+          </div>
 
-              {selectedClaim ? (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="p-6">
-                    <div className="flex justify-between items-center mb-6">
-                      <button 
-                        onClick={() => setShowYaml(!showYaml)}
-                        className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+          {/* Main content */}
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full max-w-7xl mx-auto p-6">
+              <div className="h-full grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column - Claims */}
+                <div className="h-full flex flex-col overflow-hidden">
+                  <div className="flex items-center space-x-3 mb-6 shrink-0">
+                    <svg className="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    </svg>
+                    <h2 className="text-2xl font-semibold text-gray-900">Claims</h2>
+                  </div>
+                  
+                  <div className="shrink-0 mb-6">
+                    {/* Namespace filter */}
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Namespace</label>
+                    <div className="relative">
+                      <select
+                        value={selectedNamespace}
+                        onChange={(e) => setSelectedNamespace(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none appearance-none cursor-pointer"
                       >
-                        {showYaml ? 'Hide Raw YAML' : 'Show Raw YAML'}
-                      </button>
-                      <button
-                        onClick={() => setShowTraceModal(true)}
-                        className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors flex items-center space-x-2"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        <option value="all">All Namespaces</option>
+                        {namespaces.map((ns) => (
+                          <option key={ns} value={ns}>{ns}</option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                         </svg>
-                        <span>View Resource Trace</span>
-                      </button>
-                    </div>
-
-                    {showYaml ? (
-                      <div className="bg-gray-50 rounded-lg border border-gray-200 max-h-[calc(100vh-300px)] overflow-auto">
-                        <pre className="p-4 text-sm text-gray-800 font-mono whitespace-pre">
-                          {toYAML(selectedClaim)}
-                        </pre>
                       </div>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                          <div>
-                            <div className="text-sm font-medium text-gray-500">Name</div>
-                            <div className="mt-1 text-gray-900">{selectedClaim.metadata.name}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-500">Namespace</div>
-                            <div className="mt-1 text-gray-900">{selectedClaim.claimNamespace || 'N/A'}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-500">Kind</div>
-                            <div className="mt-1 text-gray-900">{selectedClaim.kind}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-500">API Version</div>
-                            <div className="mt-1 text-gray-900">{selectedClaim.apiVersion}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-500">UID</div>
-                            <div className="mt-1 font-mono text-sm text-gray-900">{selectedClaim.metadata.uid}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-500">Created</div>
-                            <div className="mt-1 text-gray-900">
-                              {new Date(selectedClaim.metadata.creationTimestamp).toLocaleString()}
-                            </div>
-                          </div>
-                        </div>
+                    </div>
+                  </div>
 
-                        <div className="border-t border-gray-200 pt-6">
-                          <h3 className="text-lg font-medium text-gray-900 mb-4">Health Status</h3>
-                          <div className="space-y-4">
-                            {selectedClaim.status?.conditions?.map((cond, i) => (
-                              <div key={i} className="bg-gray-50 rounded-lg p-4">
-                                <div className="flex items-center space-x-2">
-                                  <div className={`w-2 h-2 rounded-full ${cond.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
-                                  <div className="font-medium text-gray-900">{cond.type}</div>
+                  <div className="flex-1 overflow-y-auto">
+                    {/* Claims list */}
+                    {Object.entries(claimsByNamespace).length > 0 ? (
+                      Object.entries(claimsByNamespace).map(([namespace, claims]) => (
+                        <div key={namespace} className="mb-6">
+                          <div className="flex items-center space-x-2 mb-3 bg-white rounded-lg px-4 py-2 shadow-sm">
+                            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                            </svg>
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {namespace}
+                              <span className="ml-2 text-sm text-gray-500">({claims.length} resources)</span>
+                            </h3>
+                          </div>
+
+                          <div className="space-y-3">
+                            {claims.map((xr) => (
+                              <div
+                                key={xr.metadata.uid}
+                                onClick={() => handleSelectClaim(xr)}
+                                className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-lg font-medium text-blue-600">{xr.metadata.name}</h4>
+                                  <div className="flex items-center space-x-2">
+                                    <div className="relative group">
+                                      <div className={`w-2 h-2 rounded-full ${xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
+                                      <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
+                                        <div className="font-medium">Ready: {xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'True' : 'False'}</div>
+                                        <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Ready')?.message || 'No status message available'}</div>
+                                        <div className="absolute bottom-0 right-0 transform translate-y-full">
+                                          <svg className="text-gray-900 h-2 w-full" viewBox="0 0 255 255" fill="currentColor">
+                                            <polygon className="fill-current" points="0,0 127.5,127.5 255,0" />
+                                          </svg>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="relative group">
+                                      <div className={`w-2 h-2 rounded-full ${xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
+                                      <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
+                                        <div className="font-medium">Synced: {xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'True' : 'False'}</div>
+                                        <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Synced')?.message || 'No status message available'}</div>
+                                        <div className="absolute bottom-0 right-0 transform translate-y-full">
+                                          <svg className="text-gray-900 h-2 w-full" viewBox="0 0 255 255" fill="currentColor">
+                                            <polygon className="fill-current" points="0,0 127.5,127.5 255,0" />
+                                          </svg>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="mt-2 text-sm text-gray-600">{cond.message}</div>
-                                <div className="mt-1 text-xs text-gray-500">
-                                  Last Updated: {new Date(cond.lastTransitionTime).toLocaleString()}
+                                <div className="mt-2 text-sm text-gray-600">Kind: {xr.kind}</div>
+                                <div className="mt-1 text-xs text-gray-400">
+                                  Created: {new Date(xr.metadata.creationTimestamp).toLocaleString()}
                                 </div>
                               </div>
                             ))}
                           </div>
                         </div>
-                      </>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-center p-6">
+                        <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        </svg>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Claims Found</h3>
+                        <p className="text-gray-500 max-w-sm">
+                          There are no active claims in the current context. Claims will appear here when they are created.
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
-              ) : (
-                <div className="bg-gray-50 rounded-lg p-6 text-center text-gray-500">
-                  Select a resource from the left to see more details
+
+                {/* Right Column - XR Details */}
+                <div className="h-full flex flex-col overflow-hidden">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center space-x-3">
+                      <svg className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <h2 className="text-2xl font-semibold text-gray-900">XR Details</h2>
+                    </div>
+                    {selectedClaim && (
+                      <button
+                        onClick={() => setSelectedClaim(null)}
+                        className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Dismiss details"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <span>Dismiss</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedClaim ? (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="p-6">
+                        <div className="flex justify-between items-center mb-6">
+                          <button 
+                            onClick={() => setShowYaml(!showYaml)}
+                            className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                          >
+                            {showYaml ? 'Hide Raw YAML' : 'Show Raw YAML'}
+                          </button>
+                          <button
+                            onClick={() => setShowTraceModal(true)}
+                            className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors flex items-center space-x-2"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            <span>View Resource Trace</span>
+                          </button>
+                        </div>
+
+                        {showYaml ? (
+                          <div className="bg-gray-50 rounded-lg border border-gray-200 max-h-[calc(100vh-300px)] overflow-auto">
+                            <pre className="p-4 text-sm text-gray-800 font-mono whitespace-pre">
+                              {toYAML(selectedClaim)}
+                            </pre>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                              <div>
+                                <div className="text-sm font-medium text-gray-500">Name</div>
+                                <div className="mt-1 text-gray-900">{selectedClaim.metadata.name}</div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-500">Namespace</div>
+                                <div className="mt-1 text-gray-900">{selectedClaim.claimNamespace || 'N/A'}</div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-500">Kind</div>
+                                <div className="mt-1 text-gray-900">{selectedClaim.kind}</div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-500">API Version</div>
+                                <div className="mt-1 text-gray-900">{selectedClaim.apiVersion}</div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-500">UID</div>
+                                <div className="mt-1 font-mono text-sm text-gray-900">{selectedClaim.metadata.uid}</div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-500">Created</div>
+                                <div className="mt-1 text-gray-900">
+                                  {new Date(selectedClaim.metadata.creationTimestamp).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="border-t border-gray-200 pt-6">
+                              <h3 className="text-lg font-medium text-gray-900 mb-4">Health Status</h3>
+                              <div className="space-y-4">
+                                {selectedClaim.status?.conditions?.map((cond, i) => (
+                                  <div key={i} className="bg-gray-50 rounded-lg p-4">
+                                    <div className="flex items-center space-x-2">
+                                      <div className={`w-2 h-2 rounded-full ${cond.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
+                                      <div className="font-medium text-gray-900">{cond.type}</div>
+                                    </div>
+                                    <div className="mt-2 text-sm text-gray-600">{cond.message}</div>
+                                    <div className="mt-1 text-xs text-gray-500">
+                                      Last Updated: {new Date(cond.lastTransitionTime).toLocaleString()}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-6 text-center text-gray-500">
+                      Select a resource from the left to see more details
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </main>
 
-      <TraceModal
-        isOpen={showTraceModal}
-        onClose={() => setShowTraceModal(false)}
-        claim={selectedClaim}
-      />
-    </main>
+        <TraceModal
+          isOpen={showTraceModal}
+          onClose={() => setShowTraceModal(false)}
+          claim={selectedClaim}
+        />
+      </div>
+    </div>
   );
 }
 
