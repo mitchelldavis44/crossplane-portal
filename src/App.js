@@ -834,6 +834,202 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
   );
 };
 
+// Collapsible Namespace list
+const NamespaceList = ({ namespaces, claimsByNamespace, onSelectClaim }) => {
+  // Initialize with all namespaces expanded by default
+  const [expandedNamespaces, setExpandedNamespaces] = useState(() => new Set(namespaces));
+  const [isAllExpanded, setIsAllExpanded] = useState(true);
+
+  const toggleNamespace = (namespace) => {
+    setExpandedNamespaces(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(namespace)) {
+        newSet.delete(namespace);
+      } else {
+        newSet.add(namespace);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllNamespaces = () => {
+    if (isAllExpanded) {
+      setExpandedNamespaces(new Set());
+    } else {
+      setExpandedNamespaces(new Set(namespaces));
+    }
+    setIsAllExpanded(!isAllExpanded);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-semibold text-gray-900">Namespaces</h2>
+        <button
+          onClick={toggleAllNamespaces}
+          className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          <svg 
+            className={`w-4 h-4 transform transition-transform ${isAllExpanded ? 'rotate-90' : ''}`} 
+            viewBox="0 0 20 20" 
+            fill="currentColor"
+          >
+            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+          <span>{isAllExpanded ? 'Collapse All' : 'Expand All'}</span>
+        </button>
+      </div>
+      
+      {namespaces.map(namespace => (
+        <CollapsibleNamespace
+          key={namespace}
+          namespace={namespace}
+          claims={claimsByNamespace[namespace]}
+          isExpanded={expandedNamespaces.has(namespace)}
+          onToggle={() => toggleNamespace(namespace)}
+          onSelectClaim={onSelectClaim}
+        />
+      ))}
+    </div>
+  );
+};
+
+const NamespaceStatusIndicator = ({ claims }) => {
+  // Calculate status counts
+  const statusCounts = claims.reduce((acc, claim) => {
+    const readyStatus = claim.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True';
+    const syncedStatus = claim.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True';
+    
+    if (readyStatus) acc.ready++;
+    if (syncedStatus) acc.synced++;
+    
+    return acc;
+  }, { ready: 0, synced: 0 });
+
+  return (
+    <div className="flex items-center space-x-3">
+      <div className="relative group">
+        <div className="flex items-center space-x-1">
+          <div className={`w-2 h-2 rounded-full ${
+            statusCounts.ready === claims.length ? 'bg-green-500' : 
+            statusCounts.ready === 0 ? 'bg-red-500' : 'bg-yellow-500'
+          }`} />
+          <span className="text-xs text-gray-500">Ready</span>
+        </div>
+        <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block">
+          <div className="bg-gray-900 text-white text-sm rounded-lg py-2 px-3 whitespace-nowrap">
+            <div className="font-medium">Ready Status</div>
+            <div className="text-xs text-gray-300 mt-1">
+              {statusCounts.ready} of {claims.length} resources ready
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative group">
+        <div className="flex items-center space-x-1">
+          <div className={`w-2 h-2 rounded-full ${
+            statusCounts.synced === claims.length ? 'bg-green-500' : 
+            statusCounts.synced === 0 ? 'bg-red-500' : 'bg-yellow-500'
+          }`} />
+          <span className="text-xs text-gray-500">Synced</span>
+        </div>
+        <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block">
+          <div className="bg-gray-900 text-white text-sm rounded-lg py-2 px-3 whitespace-nowrap">
+            <div className="font-medium">Sync Status</div>
+            <div className="text-xs text-gray-300 mt-1">
+              {statusCounts.synced} of {claims.length} resources synced
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Only show namespace status indicators when collapsed
+const CollapsibleNamespace = ({ namespace, claims, isExpanded, onToggle, onSelectClaim }) => {
+  return (
+    <div className="mb-4">
+      <div 
+        className="flex items-center justify-between bg-white rounded-lg px-4 py-2 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={onToggle}
+      >
+        <div className="flex items-center space-x-2">
+          <svg 
+            className={`w-5 h-5 text-gray-500 transform transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+            viewBox="0 0 20 20" 
+            fill="currentColor"
+          >
+            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">
+              {namespace}
+            </h3>
+            <div className="text-sm text-gray-500">
+              {claims.length} {claims.length === 1 ? 'resource' : 'resources'}
+            </div>
+          </div>
+        </div>
+        
+        {/* Only show namespace status when collapsed */}
+        {!isExpanded && <NamespaceStatusIndicator claims={claims} />}
+      </div>
+      
+      {isExpanded && (
+        <div className="mt-2 space-y-2 pl-4">
+          {claims.map((xr) => (
+            <div
+              key={xr.metadata.uid}
+              onClick={() => onSelectClaim(xr)}
+              className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-medium text-blue-600">{xr.metadata.name}</h4>
+                <div className="flex items-center space-x-3">
+                  <div className="relative group">
+                    <div className="flex items-center space-x-1">
+                      <div className={`w-2 h-2 rounded-full ${
+                        xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' 
+                          ? 'bg-green-500' 
+                          : 'bg-red-500'
+                      }`} />
+                      <span className="text-xs text-gray-500">Ready</span>
+                    </div>
+                    <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
+                      <div className="font-medium">Ready: {xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'True' : 'False'}</div>
+                      <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Ready')?.message || 'No status message available'}</div>
+                    </div>
+                  </div>
+                  <div className="relative group">
+                    <div className="flex items-center space-x-1">
+                      <div className={`w-2 h-2 rounded-full ${
+                        xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' 
+                          ? 'bg-green-500' 
+                          : 'bg-red-500'
+                      }`} />
+                      <span className="text-xs text-gray-500">Synced</span>
+                    </div>
+                    <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
+                      <div className="font-medium">Synced: {xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'True' : 'False'}</div>
+                      <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Synced')?.message || 'No status message available'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 text-sm text-gray-600">Kind: {xr.kind}</div>
+              <div className="mt-1 text-xs text-gray-400">
+                Created: {new Date(xr.metadata.creationTimestamp).toLocaleString()}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Main application component
 export default function Home() {
   // State management
@@ -1191,63 +1387,11 @@ export default function Home() {
                   <div className="flex-1 overflow-y-auto">
                     {/* Claims list */}
                     {Object.entries(claimsByNamespace).length > 0 ? (
-                      Object.entries(claimsByNamespace).map(([namespace, claims]) => (
-                        <div key={namespace} className="mb-6">
-                          <div className="flex items-center space-x-2 mb-3 bg-white rounded-lg px-4 py-2 shadow-sm">
-                            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                            </svg>
-                            <h3 className="text-lg font-medium text-gray-900">
-                              {namespace}
-                              <span className="ml-2 text-sm text-gray-500">({claims.length} resources)</span>
-                            </h3>
-                          </div>
-
-                          <div className="space-y-3">
-                            {claims.map((xr) => (
-                              <div
-                                key={xr.metadata.uid}
-                                onClick={() => handleSelectClaim(xr)}
-                                className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <h4 className="text-lg font-medium text-blue-600">{xr.metadata.name}</h4>
-                                  <div className="flex items-center space-x-2">
-                                    <div className="relative group">
-                                      <div className={`w-2 h-2 rounded-full ${xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
-                                      <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
-                                        <div className="font-medium">Ready: {xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'True' : 'False'}</div>
-                                        <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Ready')?.message || 'No status message available'}</div>
-                                        <div className="absolute bottom-0 right-0 transform translate-y-full">
-                                          <svg className="text-gray-900 h-2 w-full" viewBox="0 0 255 255" fill="currentColor">
-                                            <polygon className="fill-current" points="0,0 127.5,127.5 255,0" />
-                                          </svg>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="relative group">
-                                      <div className={`w-2 h-2 rounded-full ${xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
-                                      <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
-                                        <div className="font-medium">Synced: {xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'True' : 'False'}</div>
-                                        <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Synced')?.message || 'No status message available'}</div>
-                                        <div className="absolute bottom-0 right-0 transform translate-y-full">
-                                          <svg className="text-gray-900 h-2 w-full" viewBox="0 0 255 255" fill="currentColor">
-                                            <polygon className="fill-current" points="0,0 127.5,127.5 255,0" />
-                                          </svg>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="mt-2 text-sm text-gray-600">Kind: {xr.kind}</div>
-                                <div className="mt-1 text-xs text-gray-400">
-                                  Created: {new Date(xr.metadata.creationTimestamp).toLocaleString()}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))
+                      <NamespaceList
+                        namespaces={Object.keys(claimsByNamespace)}
+                        claimsByNamespace={claimsByNamespace}
+                        onSelectClaim={handleSelectClaim}
+                      />
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full text-center p-6">
                         <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
