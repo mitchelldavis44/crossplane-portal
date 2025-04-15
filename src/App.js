@@ -1272,10 +1272,10 @@ export default function Home() {
   };
 
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
       <TitleBar />
-      <div className="content" style={{ marginTop: '28px' }}>
-        <main className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+      <div className="content" style={{ height: 'calc(100vh - 28px)', marginTop: '28px', overflow: 'hidden' }}>
+        <main className="h-full flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white/50 backdrop-blur-sm shrink-0">
             <div className="flex items-center space-x-3">
@@ -1354,7 +1354,7 @@ export default function Home() {
             <div className="h-full max-w-7xl mx-auto p-6">
               <div className="h-full grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Left Column - Claims */}
-                <div className="h-full flex flex-col overflow-hidden">
+                <div className="h-full flex flex-col">
                   <div className="flex items-center space-x-3 mb-6 shrink-0">
                     <svg className="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -1407,8 +1407,8 @@ export default function Home() {
                 </div>
 
                 {/* Right Column - XR Details */}
-                <div className="h-full flex flex-col overflow-hidden">
-                  <div className="flex items-center justify-between mb-6">
+                <div className="h-full flex flex-col">
+                  <div className="flex items-center justify-between mb-6 shrink-0">
                     <div className="flex items-center space-x-3">
                       <svg className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1429,90 +1429,92 @@ export default function Home() {
                     )}
                   </div>
 
-                  {selectedClaim ? (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                      <div className="p-6">
-                        <div className="flex justify-between items-center mb-6">
-                          <button 
-                            onClick={() => setShowYaml(!showYaml)}
-                            className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                          >
-                            {showYaml ? 'Hide Raw YAML' : 'Show Raw YAML'}
-                          </button>
-                          <button
-                            onClick={() => setShowTraceModal(true)}
-                            className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors flex items-center space-x-2"
-                          >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            <span>View Resource Trace</span>
-                          </button>
-                        </div>
-
-                        {showYaml ? (
-                          <div className="bg-gray-50 rounded-lg border border-gray-200 max-h-[calc(100vh-300px)] overflow-auto">
-                            <pre className="p-4 text-sm text-gray-800 font-mono whitespace-pre">
-                              {toYAML(selectedClaim)}
-                            </pre>
+                  <div className="flex-1 overflow-y-auto">
+                    {selectedClaim ? (
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-6">
+                          <div className="flex justify-between items-center mb-6">
+                            <button 
+                              onClick={() => setShowYaml(!showYaml)}
+                              className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                            >
+                              {showYaml ? 'Hide Raw YAML' : 'Show Raw YAML'}
+                            </button>
+                            <button
+                              onClick={() => setShowTraceModal(true)}
+                              className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors flex items-center space-x-2"
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                              <span>View Resource Trace</span>
+                            </button>
                           </div>
-                        ) : (
-                          <>
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                              <div>
-                                <div className="text-sm font-medium text-gray-500">Name</div>
-                                <div className="mt-1 text-gray-900">{selectedClaim.metadata.name}</div>
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium text-gray-500">Namespace</div>
-                                <div className="mt-1 text-gray-900">{selectedClaim.claimNamespace || 'N/A'}</div>
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium text-gray-500">Kind</div>
-                                <div className="mt-1 text-gray-900">{selectedClaim.kind}</div>
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium text-gray-500">API Version</div>
-                                <div className="mt-1 text-gray-900">{selectedClaim.apiVersion}</div>
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium text-gray-500">UID</div>
-                                <div className="mt-1 font-mono text-sm text-gray-900">{selectedClaim.metadata.uid}</div>
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium text-gray-500">Created</div>
-                                <div className="mt-1 text-gray-900">
-                                  {new Date(selectedClaim.metadata.creationTimestamp).toLocaleString()}
+
+                          {showYaml ? (
+                            <div className="bg-gray-50 rounded-lg border border-gray-200 max-h-[calc(100vh-300px)] overflow-auto">
+                              <pre className="p-4 text-sm text-gray-800 font-mono whitespace-pre">
+                                {toYAML(selectedClaim)}
+                              </pre>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-2 gap-4 mb-6">
+                                <div>
+                                  <div className="text-sm font-medium text-gray-500">Name</div>
+                                  <div className="mt-1 text-gray-900">{selectedClaim.metadata.name}</div>
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-500">Namespace</div>
+                                  <div className="mt-1 text-gray-900">{selectedClaim.claimNamespace || 'N/A'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-500">Kind</div>
+                                  <div className="mt-1 text-gray-900">{selectedClaim.kind}</div>
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-500">API Version</div>
+                                  <div className="mt-1 text-gray-900">{selectedClaim.apiVersion}</div>
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-500">UID</div>
+                                  <div className="mt-1 font-mono text-sm text-gray-900">{selectedClaim.metadata.uid}</div>
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-500">Created</div>
+                                  <div className="mt-1 text-gray-900">
+                                    {new Date(selectedClaim.metadata.creationTimestamp).toLocaleString()}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <div className="border-t border-gray-200 pt-6">
-                              <h3 className="text-lg font-medium text-gray-900 mb-4">Health Status</h3>
-                              <div className="space-y-4">
-                                {selectedClaim.status?.conditions?.map((cond, i) => (
-                                  <div key={i} className="bg-gray-50 rounded-lg p-4">
-                                    <div className="flex items-center space-x-2">
-                                      <div className={`w-2 h-2 rounded-full ${cond.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
-                                      <div className="font-medium text-gray-900">{cond.type}</div>
+                              <div className="border-t border-gray-200 pt-6">
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Health Status</h3>
+                                <div className="space-y-4">
+                                  {selectedClaim.status?.conditions?.map((cond, i) => (
+                                    <div key={i} className="bg-gray-50 rounded-lg p-4">
+                                      <div className="flex items-center space-x-2">
+                                        <div className={`w-2 h-2 rounded-full ${cond.status === 'True' ? 'bg-green-500' : 'bg-red-500'}`} />
+                                        <div className="font-medium text-gray-900">{cond.type}</div>
+                                      </div>
+                                      <div className="mt-2 text-sm text-gray-600">{cond.message}</div>
+                                      <div className="mt-1 text-xs text-gray-500">
+                                        Last Updated: {new Date(cond.lastTransitionTime).toLocaleString()}
+                                      </div>
                                     </div>
-                                    <div className="mt-2 text-sm text-gray-600">{cond.message}</div>
-                                    <div className="mt-1 text-xs text-gray-500">
-                                      Last Updated: {new Date(cond.lastTransitionTime).toLocaleString()}
-                                    </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          </>
-                        )}
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-50 rounded-lg p-6 text-center text-gray-500">
-                      Select a resource from the left to see more details
-                    </div>
-                  )}
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-6 text-center text-gray-500">
+                        Select a resource from the left to see more details
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
