@@ -2,17 +2,145 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
 const { KubeConfig, CoreV1Api, CustomObjectsApi } = require('@kubernetes/client-node');
+const { execSync } = require('child_process');
+const fs = require('fs');
 
 let mainWindow;
 let kubeConfig = null;
+
+// Function to get the shell environment
+function getShellEnvironment() {
+  try {
+    // For macOS, we need to get the environment from the shell
+    if (process.platform === 'darwin') {
+      const shell = process.env.SHELL || '/bin/bash';
+      const envCommand = `${shell} -l -c 'env'`;
+      const envOutput = execSync(envCommand).toString();
+      
+      const env = {};
+      envOutput.split('\n').forEach(line => {
+        const [key, ...values] = line.split('=');
+        if (key && values.length > 0) {
+          env[key] = values.join('=');
+        }
+      });
+      
+      return env;
+    }
+    return process.env;
+  } catch (error) {
+    console.error('Error getting shell environment:', error);
+    return process.env;
+  }
+}
+
+// Initialize environment variables
+const shellEnv = getShellEnvironment();
+process.env = { ...process.env, ...shellEnv };
 
 function initializeKubeConfig() {
   try {
     kubeConfig = new KubeConfig();
     kubeConfig.loadFromDefault();
-    console.log('Successfully initialized KubeConfig');
+
+    const currentContext = kubeConfig.getCurrentContext();
+    const context = kubeConfig.getContextObject(currentContext);
+    if (!context) {
+      console.error(`Context '${currentContext}' not found in kubeconfig.`);
+      return;
+    }
+
+    const user = kubeConfig.getUser(context.user);
+    if (!user) {
+      console.error(`User '${context.user}' not found in kubeconfig.`);
+      return;
+    }
+
+    if (user.exec && user.exec.command === 'aws') {
+      const commonAwsPaths = [
+        '/usr/local/bin/aws',
+        '/opt/homebrew/bin/aws',
+        '/usr/bin/aws',
+        `${process.env.HOME}/.local/bin/aws`,
+        `${process.env.HOME}/bin/aws`
+      ];
+
+      let resolvedPath = null;
+
+      // First check if the command is already an absolute path
+      if (user.exec.command.startsWith('/')) {
+        if (fs.existsSync(user.exec.command)) {
+          resolvedPath = user.exec.command;
+          console.log(`Using provided absolute AWS CLI path: ${resolvedPath}`);
+        }
+      }
+
+      // If not an absolute path or the path doesn't exist, try to resolve it
+      if (!resolvedPath) {
+        // Try using 'which' with the shell environment
+        try {
+          const whichOutput = execSync('which aws', { env: process.env });
+          const whichPath = whichOutput.toString().trim();
+          if (fs.existsSync(whichPath)) {
+            resolvedPath = whichPath;
+            user.exec.command = resolvedPath;
+            console.log(`Resolved AWS CLI via 'which': ${resolvedPath}`);
+          }
+        } catch (err) {
+          console.warn('Could not resolve aws with "which aws":', err.message);
+        }
+
+        // If 'which' failed, try searching in common installation locations
+        if (!resolvedPath) {
+          for (const possiblePath of commonAwsPaths) {
+            if (fs.existsSync(possiblePath)) {
+              resolvedPath = possiblePath;
+              user.exec.command = resolvedPath;
+              console.log(`Found AWS CLI at: ${resolvedPath}`);
+              break;
+            }
+          }
+        }
+      }
+
+      if (!resolvedPath) {
+        const error = new Error(
+          'Unable to find AWS CLI. Please ensure AWS CLI is installed and either:\n' +
+          '1. Specify the absolute path to AWS CLI in your kubeconfig (e.g., command: /path/to/aws)\n' +
+          '2. Install AWS CLI in a standard location or add it to your PATH'
+        );
+        console.error(error.message);
+        throw error;
+      }
+
+      // Ensure environment variables are properly set
+      user.exec.env = user.exec.env || [];
+      // Add AWS environment variables if they exist
+      if (process.env.AWS_ACCESS_KEY_ID) {
+        user.exec.env.push({ name: 'AWS_ACCESS_KEY_ID', value: process.env.AWS_ACCESS_KEY_ID });
+      }
+      if (process.env.AWS_SECRET_ACCESS_KEY) {
+        user.exec.env.push({ name: 'AWS_SECRET_ACCESS_KEY', value: process.env.AWS_SECRET_ACCESS_KEY });
+      }
+      if (process.env.AWS_SESSION_TOKEN) {
+        user.exec.env.push({ name: 'AWS_SESSION_TOKEN', value: process.env.AWS_SESSION_TOKEN });
+      }
+      if (process.env.AWS_DEFAULT_REGION) {
+        user.exec.env.push({ name: 'AWS_DEFAULT_REGION', value: process.env.AWS_DEFAULT_REGION });
+      }
+
+      // Log the final exec configuration for debugging
+      console.log('Final exec configuration:', {
+        command: user.exec.command,
+        args: user.exec.args,
+        env: user.exec.env
+      });
+    }
+
+    console.log('Successfully initialized KubeConfig for context:', currentContext);
   } catch (error) {
     console.error('Error initializing KubeConfig:', error);
+    kubeConfig = null;
   }
 }
 
@@ -286,12 +414,24 @@ ipcMain.handle('k8s-api', async (event, { path, method = 'GET', body }) => {
   } catch (error) {
     console.error('Kubernetes API error:', error);
     
+    // Check if this is an AWS CLI exec error
+    if (error.message && error.message.includes('aws')) {
+      console.error('AWS CLI error detected:', error);
+      return {
+        error: 'AWS CLI authentication failed',
+        details: error.message || 'Unknown AWS CLI error',
+        code: 'AWS_CLI_ERROR',
+        statusCode: 401,
+        stack: error.stack
+      };
+    }
+    
     // Create a serializable error response
     const errorResponse = {
       error: error.message || 'Failed to communicate with Kubernetes cluster',
-      details: error.response?.body || null,
-      code: error.code || error.statusCode,
-      statusCode: error.statusCode,
+      details: error.response?.body || error.message || null,
+      code: error.code || error.statusCode || 'UNKNOWN_ERROR',
+      statusCode: error.statusCode || 500,
       stack: error.stack // Include stack trace for debugging
     };
 
@@ -300,6 +440,9 @@ ipcMain.handle('k8s-api', async (event, { path, method = 'GET', body }) => {
       console.warn('Received HTML response instead of JSON:', errorResponse.details);
       errorResponse.details = 'Invalid response format received from server';
     }
+
+    // Log the final error response for debugging
+    console.error('Final error response:', errorResponse);
 
     return errorResponse;
   }

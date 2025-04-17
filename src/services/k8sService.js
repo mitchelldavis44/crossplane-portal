@@ -17,14 +17,21 @@ export async function fetchResource(path, method = 'GET', body = undefined) {
     // Log the raw response for debugging
     console.log('Raw API response:', response);
     
+    // Handle null or undefined response
+    if (!response) {
+      console.error('Received null or undefined response from API');
+      throw new Error('No response received from API');
+    }
+    
     if (response.error) {
       console.error('API error:', response.error);
-      console.error('Error details:', {
-        message: response.error,
-        details: response.details,
-        code: response.code,
-        statusCode: response.statusCode
-      });
+      const errorDetails = {
+        message: response.error || 'Unknown error',
+        details: response.details || null,
+        code: response.code || undefined,
+        statusCode: response.statusCode || undefined
+      };
+      console.error('Error details:', errorDetails);
       throw new Error(response.error + (response.details ? `: ${response.details}` : ''));
     }
     
