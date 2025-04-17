@@ -1354,7 +1354,7 @@ export default function Home() {
             <div className="h-full max-w-7xl mx-auto p-6">
               <div className="h-full grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Left Column - Claims */}
-                <div className="h-full flex flex-col">
+                <div className="h-full flex flex-col overflow-hidden">
                   <div className="flex items-center space-x-3 mb-6 shrink-0">
                     <svg className="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -1365,44 +1365,39 @@ export default function Home() {
                   <div className="shrink-0 mb-6">
                     {/* Namespace filter */}
                     <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Namespace</label>
-                    <div className="relative">
-                      <select
-                        value={selectedNamespace}
-                        onChange={(e) => setSelectedNamespace(e.target.value)}
-                        className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none appearance-none cursor-pointer"
-                      >
-                        <option value="all">All Namespaces</option>
-                        {namespaces.map((ns) => (
-                          <option key={ns} value={ns}>{ns}</option>
-                        ))}
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    </div>
+                    <select
+                      value={selectedNamespace}
+                      onChange={(e) => setSelectedNamespace(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="all">All Namespaces</option>
+                      {namespaces.map(ns => (
+                        <option key={ns} value={ns}>{ns}</option>
+                      ))}
+                    </select>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto">
-                    {/* Claims list */}
-                    {Object.entries(claimsByNamespace).length > 0 ? (
-                      <NamespaceList
-                        namespaces={Object.keys(claimsByNamespace)}
-                        claimsByNamespace={claimsByNamespace}
-                        onSelectClaim={handleSelectClaim}
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-center p-6">
-                        <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                        </svg>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Claims Found</h3>
-                        <p className="text-gray-500 max-w-sm">
-                          There are no active claims in the current context. Claims will appear here when they are created.
-                        </p>
-                      </div>
-                    )}
+                  <div className="flex-1 overflow-y-auto min-h-0 relative">
+                    <div className="absolute inset-0 overflow-y-auto">
+                      {/* Claims list */}
+                      {Object.entries(claimsByNamespace).length > 0 ? (
+                        <NamespaceList
+                          namespaces={Object.keys(claimsByNamespace)}
+                          claimsByNamespace={claimsByNamespace}
+                          onSelectClaim={handleSelectClaim}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-6">
+                          <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                          </svg>
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">No Claims Found</h3>
+                          <p className="text-gray-500 max-w-sm">
+                            There are no active claims in the current context. Claims will appear here when they are created.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
