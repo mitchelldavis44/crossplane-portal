@@ -384,6 +384,115 @@ const GraphView = ({ traceData }) => {
   );
 };
 
+// Add the YAML modal component
+const YAMLModal = ({ resource, onClose }) => {
+  if (!resource) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">
+            {resource.kind}/{resource.metadata.name}
+          </h3>
+          <button 
+            onClick={onClose}
+            className="rounded-lg p-2 hover:bg-gray-100 transition-colors"
+          >
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto p-6">
+          <pre className="bg-gray-50 rounded-lg p-4 text-sm font-mono text-gray-800 whitespace-pre">
+            {toYAML(resource)}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
+  const [showYAML, setShowYAML] = useState(false);
+
+  return (
+    <>
+      <div 
+        className="px-4 py-2 grid grid-cols-[300px,100px,100px,1fr] items-center gap-4 hover:bg-white group cursor-pointer"
+        onClick={() => setShowYAML(true)}
+      >
+        <div className="truncate text-gray-600 flex items-center">
+          <span className="font-mono whitespace-pre">{depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}</span>
+          <span>{resource.kind}/{resource.metadata.name}</span>
+        </div>
+        <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
+          {resource.status?.conditions?.find(c => c.type === 'Synced')?.status || '-'}
+        </div>
+        <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
+          {resource.status?.conditions?.find(c => c.type === 'Ready')?.status || '-'}
+        </div>
+        <div className="text-gray-900 break-words">
+          {resource.status?.conditions?.find(c => c.type === 'Ready')?.message || 
+           resource.status?.conditions?.find(c => c.type === 'Synced')?.message || 
+           'No status message available'}
+        </div>
+      </div>
+      {showYAML && (
+        <YAMLModal 
+          resource={resource}
+          onClose={() => setShowYAML(false)}
+        />
+      )}
+    </>
+  );
+};
+
+// Update the existing trace view to use the simplified ResourceRow component
+const TraceView = ({ traceData }) => {
+  if (!traceData) return null;
+
+  return (
+    <div className="bg-gray-100 rounded-lg overflow-hidden">
+      <div className="px-4 py-2 bg-white border-b grid grid-cols-[300px,100px,100px,1fr] gap-4">
+        <div className="font-medium text-gray-700">NAME</div>
+        <div className="font-medium text-gray-700 text-center">SYNCED</div>
+        <div className="font-medium text-gray-700 text-center">READY</div>
+        <div className="font-medium text-gray-700">STATUS</div>
+      </div>
+      
+      <div className="divide-y">
+        {/* Claim */}
+        <ResourceRow resource={traceData.claim} />
+        
+        {/* Composite */}
+        <ResourceRow 
+          resource={traceData.composite} 
+          depth={1} 
+          isLast={traceData.managedResources.length === 0}
+        />
+        
+        {/* Managed Resources */}
+        {traceData.managedResources.map((resource, index) => (
+          <ResourceRow 
+            key={`${resource.kind}-${resource.metadata.name}`}
+            resource={resource}
+            depth={1}
+            isLast={index === traceData.managedResources.length - 1}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const TraceModal = ({ isOpen, onClose, claim }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -681,144 +790,19 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
                 {/* Scrollable data rows */}
                 <div className="divide-y divide-gray-200 overflow-y-auto">
                   {/* Claim row */}
-                  <div 
-                    className="px-4 py-2 grid grid-cols-[300px,100px,100px,1fr] items-center gap-4 hover:bg-white group"
-                    onClick={() => {
-                      const inspectModal = document.createElement('div');
-                      inspectModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-                      inspectModal.onclick = (e) => {
-                        if (e.target === inspectModal) {
-                          inspectModal.remove();
-                        }
-                      };
-                      inspectModal.innerHTML = `
-                        <div class="bg-white rounded-lg shadow-xl w-[80vw] h-[80vh] flex flex-col" onclick="event.stopPropagation()">
-                          <div class="flex justify-between items-center px-4 py-2 border-b">
-                            <h3 class="text-lg font-medium">Resource Inspector</h3>
-                            <button class="text-gray-500 hover:text-gray-700" onclick="this.closest('.fixed').remove()">×</button>
-                          </div>
-                          <div class="flex-1 overflow-auto p-4 bg-gray-50">
-                            <pre class="font-mono text-sm whitespace-pre">${toYAML(traceData.claim)}</pre>
-                          </div>
-                        </div>
-                      `;
-                      document.body.appendChild(inspectModal);
-                    }}
-                  >
-                    <div className="truncate font-medium text-blue-600 flex items-center gap-2">
-                      {traceData.claim.kind}/{traceData.claim.metadata.name} ({traceData.claim.metadata.namespace})
-                      <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    </div>
-                    <div className={`text-center ${traceData.claim.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
-                      {traceData.claim.status?.conditions?.find(c => c.type === 'Synced')?.status || '-'}
-                    </div>
-                    <div className={`text-center ${traceData.claim.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
-                      {traceData.claim.status?.conditions?.find(c => c.type === 'Ready')?.status || '-'}
-                    </div>
-                    <div className="text-gray-900 break-words">
-                      {traceData.claim.status?.conditions?.find(c => c.type === 'Ready')?.message || 
-                       traceData.claim.status?.conditions?.find(c => c.type === 'Synced')?.message || 
-                       'No status message available'}
-                    </div>
-                  </div>
+                  <ResourceRow resource={traceData.claim} />
 
                   {/* Composite row */}
-                  {traceData.composite && (
-                    <div 
-                      className="px-4 py-2 grid grid-cols-[300px,100px,100px,1fr] items-center gap-4 hover:bg-white group"
-                      onClick={() => {
-                        const inspectModal = document.createElement('div');
-                        inspectModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-                        inspectModal.onclick = (e) => {
-                          if (e.target === inspectModal) {
-                            inspectModal.remove();
-                          }
-                        };
-                        inspectModal.innerHTML = `
-                          <div class="bg-white rounded-lg shadow-xl w-[80vw] h-[80vh] flex flex-col" onclick="event.stopPropagation()">
-                            <div class="flex justify-between items-center px-4 py-2 border-b">
-                              <h3 class="text-lg font-medium">Resource Inspector</h3>
-                              <button class="text-gray-500 hover:text-gray-700" onclick="this.closest('.fixed').remove()">×</button>
-                            </div>
-                            <div class="flex-1 overflow-auto p-4 bg-gray-50">
-                              <pre class="font-mono text-sm whitespace-pre">${toYAML(traceData.composite)}</pre>
-                            </div>
-                          </div>
-                        `;
-                        document.body.appendChild(inspectModal);
-                      }}
-                    >
-                      <div className="truncate text-blue-600 flex items-center gap-2">
-                        └─ {traceData.composite.kind}/{traceData.composite.metadata.name}
-                        <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      </div>
-                      <div className={`text-center ${traceData.composite.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
-                        {traceData.composite.status?.conditions?.find(c => c.type === 'Synced')?.status || '-'}
-                      </div>
-                      <div className={`text-center ${traceData.composite.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
-                        {traceData.composite.status?.conditions?.find(c => c.type === 'Ready')?.status || '-'}
-                      </div>
-                      <div className="text-gray-900 break-words">
-                        {traceData.composite.status?.conditions?.find(c => c.type === 'Ready')?.message || 
-                         traceData.composite.status?.conditions?.find(c => c.type === 'Synced')?.message || 
-                         'No status message available'}
-                      </div>
-                    </div>
-                  )}
+                  <ResourceRow resource={traceData.composite} depth={1} isLast={traceData.managedResources.length === 0} />
 
                   {/* Managed resources rows */}
                   {traceData.managedResources.map((resource, index) => (
-                    <div 
-                      key={resource.metadata.name} 
-                      className="px-4 py-2 grid grid-cols-[300px,100px,100px,1fr] items-center gap-4 hover:bg-white group"
-                      onClick={() => {
-                        const inspectModal = document.createElement('div');
-                        inspectModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-                        inspectModal.onclick = (e) => {
-                          if (e.target === inspectModal) {
-                            inspectModal.remove();
-                          }
-                        };
-                        inspectModal.innerHTML = `
-                          <div class="bg-white rounded-lg shadow-xl w-[80vw] h-[80vh] flex flex-col" onclick="event.stopPropagation()">
-                            <div class="flex justify-between items-center px-4 py-2 border-b">
-                              <h3 class="text-lg font-medium">Resource Inspector</h3>
-                              <button class="text-gray-500 hover:text-gray-700" onclick="this.closest('.fixed').remove()">×</button>
-                            </div>
-                            <div class="flex-1 overflow-auto p-4 bg-gray-50">
-                              <pre class="font-mono text-sm whitespace-pre">${toYAML(resource)}</pre>
-                            </div>
-                          </div>
-                        `;
-                        document.body.appendChild(inspectModal);
-                      }}
-                    >
-                      <div className="truncate text-gray-600 flex items-center gap-2">
-                        {index === traceData.managedResources.length - 1 ? '   └─ ' : '   ├─ '}
-                        {resource.kind}/{resource.metadata.name}
-                        <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      </div>
-                      <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
-                        {resource.status?.conditions?.find(c => c.type === 'Synced')?.status || '-'}
-                      </div>
-                      <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
-                        {resource.status?.conditions?.find(c => c.type === 'Ready')?.status || '-'}
-                      </div>
-                      <div className="text-gray-900 break-words">
-                        {resource.status?.conditions?.find(c => c.type === 'Ready')?.message || 
-                         resource.status?.conditions?.find(c => c.type === 'Synced')?.message || 
-                         'No status message available'}
-                      </div>
-                    </div>
+                    <ResourceRow 
+                      key={`${resource.kind}-${resource.metadata.name}`}
+                      resource={resource}
+                      depth={1}
+                      isLast={index === traceData.managedResources.length - 1}
+                    />
                   ))}
                 </div>
               </div>

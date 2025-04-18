@@ -167,9 +167,91 @@ export async function fetchResourceTrace(claim) {
       throw new Error(`Failed to fetch composite resource ${compositeRef.kind}/${compositeRef.name}`);
     }
 
+    // Fetch composition revision information
+    const compositionRef = xrData.spec?.compositionRef;
+    let compositionRevision = null;
+    let compositionRevisions = [];
+    if (compositionRef) {
+      try {
+        // Get all revisions
+        const revisionsPath = `/apis/apiextensions.crossplane.io/v1/compositionrevisions`;
+        const revisions = await fetchResource(revisionsPath);
+        compositionRevisions = revisions?.items?.filter(rev => 
+          rev.spec.compositionRef.name === compositionRef.name
+        ) || [];
+
+        // Get active revision
+        const revisionPath = `/apis/apiextensions.crossplane.io/v1/compositionrevisions/${compositionRef.name}`;
+        compositionRevision = await fetchResource(revisionPath);
+      } catch (error) {
+        console.warn('Failed to fetch composition revision:', error);
+      }
+    }
+
+    // Fetch package dependencies
+    let packageDependencies = [];
+    try {
+      // Get all packages (providers, functions, configurations)
+      const providers = await fetchResource('/apis/pkg.crossplane.io/v1/providers');
+      const functions = await fetchResource('/apis/pkg.crossplane.io/v1/functions');
+      const configurations = await fetchResource('/apis/pkg.crossplane.io/v1/configurations');
+
+      packageDependencies = [
+        ...(providers?.items || []),
+        ...(functions?.items || []),
+        ...(configurations?.items || [])
+      ].map(pkg => ({
+        ...pkg,
+        dependencies: pkg.spec?.dependencies || [],
+        runtime: pkg.spec?.runtime || null,
+        packageType: pkg.kind.toLowerCase()
+      }));
+    } catch (error) {
+      console.warn('Failed to fetch package dependencies:', error);
+    }
+
     // Create a Set to track processed resources and avoid cycles
     const processedResources = new Set();
     
+    // Helper function to fetch events for a resource
+    async function fetchResourceEvents(resource) {
+      try {
+        const namespace = resource.metadata?.namespace;
+        const path = namespace
+          ? `/api/v1/namespaces/${namespace}/events`
+          : `/api/v1/events`;
+        
+        const events = await fetchResource(path);
+        return events?.items?.filter(event => 
+          event.involvedObject.kind === resource.kind &&
+          event.involvedObject.name === resource.metadata.name &&
+          event.involvedObject.namespace === resource.metadata.namespace
+        ) || [];
+      } catch (error) {
+        console.warn('Failed to fetch events:', error);
+        return [];
+      }
+    }
+
+    // Helper function to process connection details
+    function processConnectionDetails(resource) {
+      const connectionDetails = [];
+      
+      if (resource.status?.connectionDetails) {
+        for (const detail of resource.status.connectionDetails) {
+          connectionDetails.push({
+            type: detail.type,
+            name: detail.name,
+            value: detail.value,
+            // Only include sensitive flag if true
+            ...(detail.sensitive && { sensitive: true })
+          });
+        }
+      }
+      
+      return connectionDetails;
+    }
+
     // Recursive function to fetch a resource and its dependencies
     async function fetchResourceAndDependencies(ref, depth = 0, maxDepth = 10) {
       if (depth >= maxDepth) {
@@ -228,6 +310,12 @@ export async function fetchResourceTrace(claim) {
           return null;
         }
 
+        // Fetch events for this resource
+        const events = await fetchResourceEvents(resource);
+
+        // Process connection details
+        const connectionDetails = processConnectionDetails(resource);
+
         // Extract all possible references from the resource
         const refs = [];
         
@@ -271,10 +359,27 @@ export async function fetchResourceTrace(claim) {
             .map(ref => fetchResourceAndDependencies(ref, depth + 1, maxDepth))
         );
 
-        // Add the dependencies to the resource
-        resource.dependencies = dependencies.filter(Boolean);
+        // Filter out null dependencies and add them to the resource
+        const validDependencies = dependencies.filter(Boolean);
+        
+        // Calculate propagated status based on dependencies
+        const propagatedStatus = {
+          ready: validDependencies.every(dep => 
+            dep.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True'
+          ),
+          synced: validDependencies.every(dep => 
+            dep.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True'
+          )
+        };
 
-        return resource;
+        // Return enhanced resource information
+        return {
+          ...resource,
+          dependencies: validDependencies,
+          events,
+          connectionDetails,
+          propagatedStatus
+        };
       } catch (error) {
         console.error('Error fetching resource:', error);
         return null;
@@ -284,7 +389,12 @@ export async function fetchResourceTrace(claim) {
     // Start with the composite resource and fetch all dependencies
     const traceResult = {
       claim,
-      composite: xrData,
+      composite: {
+        ...xrData,
+        compositionRevision,
+        compositionRevisions,
+        packageDependencies
+      },
       managedResources: []
     };
 
@@ -303,6 +413,11 @@ export async function fetchResourceTrace(claim) {
     );
 
     traceResult.managedResources = managedResources.filter(Boolean);
+
+    // Add events and connection details for the claim and composite
+    traceResult.claim.events = await fetchResourceEvents(claim);
+    traceResult.composite.events = await fetchResourceEvents(xrData);
+    traceResult.composite.connectionDetails = processConnectionDetails(xrData);
 
     return traceResult;
   } catch (error) {
