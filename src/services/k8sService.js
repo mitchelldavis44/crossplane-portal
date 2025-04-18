@@ -167,46 +167,40 @@ export async function fetchResourceTrace(claim) {
       throw new Error(`Failed to fetch composite resource ${compositeRef.kind}/${compositeRef.name}`);
     }
 
-    // Extract managed resource references
-    const managedRefs = [];
+    // Create a Set to track processed resources and avoid cycles
+    const processedResources = new Set();
     
-    // Check all possible locations for managed resource references
-    if (xrData.spec?.resourceRefs) {
-      managedRefs.push(...xrData.spec.resourceRefs);
-    }
-    if (xrData.resourceRefs) {
-      managedRefs.push(...xrData.resourceRefs);
-    }
-    if (xrData.status?.resources) {
-      managedRefs.push(...xrData.status.resources);
-    }
-    if (xrData.status?.resourceRefs) {
-      managedRefs.push(...xrData.status.resourceRefs);
-    }
-    if (xrData.status?.resource?.refs) {
-      managedRefs.push(...xrData.status.resource.refs);
-    }
+    // Recursive function to fetch a resource and its dependencies
+    async function fetchResourceAndDependencies(ref, depth = 0, maxDepth = 10) {
+      if (depth >= maxDepth) {
+        console.warn('Max depth reached, stopping recursion');
+        return null;
+      }
 
-    console.log('Found managed resource refs:', managedRefs);
-
-    // Fetch all managed resources
-    const managedResources = await Promise.all(managedRefs.filter(Boolean).map(async (ref) => {
       try {
         // Handle both object and string reference formats
         const resourceRef = typeof ref === 'string' ? ref : ref.name;
         const resourceKind = typeof ref === 'string' ? null : ref.kind;
         const resourceApiVersion = typeof ref === 'string' ? null : ref.apiVersion;
+        const namespace = typeof ref === 'string' ? null : ref.namespace;
 
         if (!resourceRef) {
           console.warn('Invalid resource reference:', ref);
           return null;
         }
 
+        // Create a unique identifier for the resource
+        const resourceId = `${resourceKind}/${resourceApiVersion}/${namespace}/${resourceRef}`;
+        if (processedResources.has(resourceId)) {
+          console.log('Resource already processed:', resourceId);
+          return null;
+        }
+        processedResources.add(resourceId);
+
         // Construct the resource path
         let path;
         if (resourceKind && resourceApiVersion) {
           const [group, version] = resourceApiVersion.split('/');
-          const namespace = ref.namespace;
           const plural = resourceKind.toLowerCase() + 's';
           
           // Try cluster-scoped path first for AWS resources
@@ -226,7 +220,7 @@ export async function fetchResourceTrace(claim) {
           return null;
         }
 
-        console.log('Fetching managed resource from:', path);
+        console.log('Fetching resource from:', path);
         const resource = await fetchResource(path);
         
         if (!resource) {
@@ -234,18 +228,83 @@ export async function fetchResourceTrace(claim) {
           return null;
         }
 
+        // Extract all possible references from the resource
+        const refs = [];
+        
+        // Check spec.resourceRefs (common in XRs)
+        if (resource.spec?.resourceRefs) {
+          refs.push(...resource.spec.resourceRefs);
+        }
+
+        // Check status.resourceRefs (common in XRs)
+        if (resource.status?.resourceRefs) {
+          refs.push(...resource.status.resourceRefs);
+        }
+
+        // Check status.resources (older format)
+        if (resource.status?.resources) {
+          refs.push(...resource.status.resources);
+        }
+
+        // Check connectionDetails references
+        if (resource.status?.connectionDetails) {
+          const connectionRefs = resource.status.connectionDetails
+            .filter(detail => detail.type === 'Reference')
+            .map(detail => detail.value);
+          refs.push(...connectionRefs);
+        }
+
+        // Check for direct references in status
+        if (resource.status?.resource?.refs) {
+          refs.push(...resource.status.resource.refs);
+        }
+
+        // Check for references in resource.references (dependency tracking)
+        if (resource.references) {
+          refs.push(...resource.references);
+        }
+
+        // Recursively fetch all referenced resources
+        const dependencies = await Promise.all(
+          refs
+            .filter(Boolean)
+            .map(ref => fetchResourceAndDependencies(ref, depth + 1, maxDepth))
+        );
+
+        // Add the dependencies to the resource
+        resource.dependencies = dependencies.filter(Boolean);
+
         return resource;
       } catch (error) {
-        console.error('Failed to fetch managed resource:', error);
+        console.error('Error fetching resource:', error);
         return null;
       }
-    }));
+    }
 
-    return {
+    // Start with the composite resource and fetch all dependencies
+    const traceResult = {
       claim,
       composite: xrData,
-      managedResources: managedResources.filter(Boolean)
+      managedResources: []
     };
+
+    // Extract and fetch all managed resources from the composite
+    const managedRefs = [];
+    if (xrData.spec?.resourceRefs) managedRefs.push(...xrData.spec.resourceRefs);
+    if (xrData.status?.resourceRefs) managedRefs.push(...xrData.status.resourceRefs);
+    if (xrData.status?.resources) managedRefs.push(...xrData.status.resources);
+    if (xrData.status?.resource?.refs) managedRefs.push(...xrData.status.resource.refs);
+
+    // Fetch all managed resources and their dependencies
+    const managedResources = await Promise.all(
+      managedRefs
+        .filter(Boolean)
+        .map(ref => fetchResourceAndDependencies(ref))
+    );
+
+    traceResult.managedResources = managedResources.filter(Boolean);
+
+    return traceResult;
   } catch (error) {
     console.error('Failed to fetch resource trace:', error);
     throw error;
