@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import ReactFlow, { Background, Controls, MiniMap, Handle } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { getKubeConfig, setContext, fetchCompositeResources, fetchResource } from './services/k8sService';
+import { getKubeConfig, setContext, fetchCompositeResources, fetchResourceTrace } from './services/k8sService';
 import yaml from 'js-yaml';
 import TitleBar from './components/TitleBar';
 
@@ -425,37 +425,46 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
 
   return (
     <>
-      <div 
+      <div
         className="px-4 py-2 grid grid-cols-[300px,100px,100px,1fr] items-center gap-4 hover:bg-white group cursor-pointer"
         onClick={() => setShowYAML(true)}
+        style={{ paddingLeft: `${depth * 24}px` }}
       >
         <div className="truncate text-gray-600 flex items-center">
           <span className="font-mono whitespace-pre">{depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}</span>
           <span>{resource.kind}/{resource.metadata.name}</span>
         </div>
-        <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
+        <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}> 
           {resource.status?.conditions?.find(c => c.type === 'Synced')?.status || '-'}
         </div>
-        <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}>
+        <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}> 
           {resource.status?.conditions?.find(c => c.type === 'Ready')?.status || '-'}
         </div>
         <div className="text-gray-900 break-words">
-          {resource.status?.conditions?.find(c => c.type === 'Ready')?.message || 
-           resource.status?.conditions?.find(c => c.type === 'Synced')?.message || 
-           'No status message available'}
+          {resource.status?.conditions?.find(c => c.type === 'Ready')?.message ||
+            resource.status?.conditions?.find(c => c.type === 'Synced')?.message ||
+            'No status message available'}
         </div>
       </div>
       {showYAML && (
-        <YAMLModal 
+        <YAMLModal
           resource={resource}
           onClose={() => setShowYAML(false)}
         />
       )}
+      {/* Recursively render children */}
+      {resource.dependencies && resource.dependencies.length > 0 && resource.dependencies.map((child, idx) => (
+        <ResourceRow
+          key={`${child.kind}-${child.metadata.name}-${idx}`}
+          resource={child}
+          depth={depth + 1}
+          isLast={idx === resource.dependencies.length - 1}
+        />
+      ))}
     </>
   );
 };
 
-// Update the existing trace view to use the simplified ResourceRow component
 const TraceView = ({ traceData }) => {
   if (!traceData) return null;
 
@@ -467,27 +476,11 @@ const TraceView = ({ traceData }) => {
         <div className="font-medium text-gray-700 text-center">READY</div>
         <div className="font-medium text-gray-700">STATUS</div>
       </div>
-      
       <div className="divide-y">
         {/* Claim */}
-        <ResourceRow resource={traceData.claim} />
-        
-        {/* Composite */}
-        <ResourceRow 
-          resource={traceData.composite} 
-          depth={1} 
-          isLast={traceData.managedResources.length === 0}
-        />
-        
-        {/* Managed Resources */}
-        {traceData.managedResources.map((resource, index) => (
-          <ResourceRow 
-            key={`${resource.kind}-${resource.metadata.name}`}
-            resource={resource}
-            depth={1}
-            isLast={index === traceData.managedResources.length - 1}
-          />
-        ))}
+        {traceData.claim && <ResourceRow resource={traceData.claim} />}
+        {/* Composite (root of the tree) */}
+        {traceData.composite && <ResourceRow resource={traceData.composite} depth={1} />}
       </div>
     </div>
   );
@@ -499,189 +492,30 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
   const [activeTab, setActiveTab] = useState('trace');
   const [traceData, setTraceData] = useState(null);
 
+  // --- Recursive resource tracing logic ---
+  const getResourceId = (resource) => {
+    if (!resource) return '';
+    return `${resource.kind}/${resource.apiVersion}/${resource.metadata?.namespace || ''}/${resource.metadata?.name}`;
+  };
+
   useEffect(() => {
     if (!isOpen || !claim) return;
-
+  
     const fetchTrace = async () => {
       setLoading(true);
       setError(null);
       try {
-        // Get the composite resource name from the claim
-        const compositeRef = claim.spec?.resourceRef || claim.spec?.compositeRef;
-        if (!compositeRef) {
-          throw new Error('No composite resource reference found in claim');
-        }
-
-        // Fetch the composite resource (XR)
-        const xrPlural = compositeRef.kind.toLowerCase() + 's';
-        const xrPath = `/apis/${compositeRef.apiVersion}/${xrPlural}/${compositeRef.name}`;
-        const xrData = await fetchResource(xrPath);
-
-        // Get managed resources from the composite's status
-        const extractManagedRefs = (xrData) => {
-          const refs = [];
-          
-          // Primary location for managed resources
-          if (xrData.spec?.resourceRefs) {
-            refs.push(...xrData.spec.resourceRefs);
-          }
-
-          // Fallback locations - we check these in case the primary location is empty
-          if (xrData.resourceRefs) {
-            refs.push(...xrData.resourceRefs);
-          }
-
-          if (xrData.status?.resources) {
-            refs.push(...xrData.status.resources);
-          }
-          
-          if (xrData.status?.resourceRefs) {
-            refs.push(...xrData.status.resourceRefs);
-          }
-          
-          if (xrData.status?.resource?.refs) {
-            refs.push(...xrData.status.resource.refs);
-          }
-
-          // Log the extracted refs for debugging
-          console.log('Extracted managed refs:', refs);
-          
-          // Filter out invalid refs
-          return refs.filter(ref => {
-            if (!ref) return false;
-            // Need at least name and kind to fetch the resource
-            return (ref.name && ref.kind) || typeof ref === 'string';
-          });
-        };
-
-        const managedRefs = extractManagedRefs(xrData);
-        console.log('Found managed refs:', managedRefs);
-        
-        // Fetch each managed resource
-        const fetchedResources = await Promise.all(managedRefs.map(async (ref) => {
-          try {
-            // Handle both object and string reference formats
-            const resourceRef = typeof ref === 'string' ? ref : ref.name;
-            const resourceKind = typeof ref === 'string' ? null : ref.kind;
-            const resourceApiVersion = typeof ref === 'string' ? null : ref.apiVersion;
-
-            if (!resourceRef) {
-              console.warn('Invalid resource reference:', ref);
-              return null;
-            }
-
-            // If we have the kind and apiVersion, use them to construct the path
-            let path;
-            if (resourceKind && resourceApiVersion) {
-              const [group, version] = resourceApiVersion.split('/');
-              const namespace = ref.namespace;
-              const plural = resourceKind.toLowerCase() + 's';
-              
-              // Try cluster-scoped path first for AWS resources
-              if (group.includes('aws')) {
-                path = `/apis/${group}/${version}/${plural}/${resourceRef}`;
-              } else {
-                // For other resources, try namespaced path first
-                path = namespace
-                  ? `/apis/${group}/${version}/namespaces/${namespace}/${plural}/${resourceRef}`
-                  : `/apis/${group}/${version}/${plural}/${resourceRef}`;
-              }
-            } else if (typeof ref === 'object') {
-              // Handle resourceRefs format which might not have apiVersion
-              const kind = ref.kind;
-              const name = ref.name;
-              const namespace = ref.namespace;
-              const apiVersion = ref.apiVersion;
-
-              if (kind && name) {
-                if (apiVersion) {
-                  const [group, version] = apiVersion.split('/');
-                  const plural = kind.toLowerCase() + 's';
-                  // Try cluster-scoped first for AWS resources
-                  if (group.includes('aws')) {
-                    path = `/apis/${group}/${version}/${plural}/${name}`;
-                  } else {
-                    path = namespace
-                      ? `/apis/${group}/${version}/namespaces/${namespace}/${plural}/${name}`
-                      : `/apis/${group}/${version}/${plural}/${name}`;
-                  }
-                } else {
-                  // Try core API if no apiVersion specified
-                  const plural = kind.toLowerCase() + 's';
-                  path = namespace
-                    ? `/api/v1/namespaces/${namespace}/${plural}/${name}`
-                    : `/api/v1/${plural}/${name}`;
-                }
-              }
-            }
-
-            if (!path && typeof ref === 'string') {
-              // Use the reference as a direct path
-              path = ref;
-            }
-
-            if (!path) {
-              console.warn('Could not construct path for resource:', ref);
-              return null;
-            }
-
-            console.log('Attempting to fetch managed resource:', { path, ref });
-            try {
-              const resource = await fetchResource(path);
-              if (!resource) {
-                console.warn('No resource returned for path:', path);
-                return null;
-              }
-              return resource;
-            } catch (error) {
-              // If the first attempt fails and it's a namespaced path, try cluster-scoped
-              if (error.message?.includes('404') && path.includes('/namespaces/')) {
-                const clusterPath = path.replace(/\/namespaces\/[^/]+/, '');
-                console.log('Retrying as cluster-scoped resource:', clusterPath);
-                try {
-                  return await fetchResource(clusterPath);
-                } catch (clusterError) {
-                  console.error('Failed to fetch cluster-scoped resource:', clusterError);
-                  return null;
-                }
-              }
-              // If it's already cluster-scoped and failed, try namespaced as a last resort
-              else if (error.message?.includes('404') && !path.includes('/namespaces/')) {
-                const namespace = ref.namespace || 'default';
-                const namespacedPath = path.replace(/\/([^/]+)\/([^/]+)$/, `/namespaces/${namespace}/$1/$2`);
-                console.log('Retrying as namespaced resource:', namespacedPath);
-                try {
-                  return await fetchResource(namespacedPath);
-                } catch (namespacedError) {
-                  console.error('Failed to fetch namespaced resource:', namespacedError);
-                  return null;
-                }
-              }
-              console.error('Error fetching managed resource:', error);
-              return null;
-            }
-          } catch (error) {
-            console.error('Error processing managed resource:', error);
-            return null;
-          }
-        }));
-
-        const managedResources = fetchedResources.filter(Boolean);
-        console.log('Fetched managed resources:', managedResources);
-
-        setTraceData({
-          claim: claim,
-          composite: xrData,
-          managedResources: managedResources
-        });
+        // This one call does everything: follows spec.resourceRefs,
+  // status.resourceRefs, status.resources, ownerRefs, connection details, events, etc.
+        const fullTrace = await fetchResourceTrace(claim);
+        setTraceData(fullTrace);
       } catch (err) {
-        console.error('Error fetching trace:', err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchTrace();
   }, [isOpen, claim]);
 

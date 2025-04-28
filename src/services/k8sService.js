@@ -216,40 +216,39 @@ export async function fetchResourceTrace(claim) {
     // Helper function to fetch events for a resource
     async function fetchResourceEvents(resource) {
       try {
-        const namespace = resource.metadata?.namespace;
-        const path = namespace
-          ? `/api/v1/namespaces/${namespace}/events`
-          : `/api/v1/events`;
-        
+        const ns = resource.metadata?.namespace;
+        // build the fieldSelector so we only get events for this object
+        const fs = [
+          `involvedObject.name=${resource.metadata.name}`,
+          `involvedObject.kind=${resource.kind}`,
+          `involvedObject.uid=${resource.metadata.uid}`
+        ].join(',');
+
+        const path = ns
+          ? `/api/v1/namespaces/${ns}/events?fieldSelector=${fs}`
+          : `/api/v1/events?fieldSelector=${fs}`;
+
         const events = await fetchResource(path);
-        return events?.items?.filter(event => 
-          event.involvedObject.kind === resource.kind &&
-          event.involvedObject.name === resource.metadata.name &&
-          event.involvedObject.namespace === resource.metadata.namespace
-        ) || [];
-      } catch (error) {
-        console.warn('Failed to fetch events:', error);
+        return events?.items || [];
+      } catch (err) {
+        console.warn('Failed to fetch events (falling back to empty list):', err);
         return [];
       }
     }
 
     // Helper function to process connection details
     function processConnectionDetails(resource) {
-      const connectionDetails = [];
+       // Only iterate if it really is an array
+       const detailsArray = Array.isArray(resource.status?.connectionDetails)
+         ? resource.status.connectionDetails
+         : [];
       
-      if (resource.status?.connectionDetails) {
-        for (const detail of resource.status.connectionDetails) {
-          connectionDetails.push({
-            type: detail.type,
-            name: detail.name,
-            value: detail.value,
-            // Only include sensitive flag if true
-            ...(detail.sensitive && { sensitive: true })
-          });
-        }
-      }
-      
-      return connectionDetails;
+       return detailsArray.map(detail => ({
+         type: detail.type,
+         name: detail.name,
+         value: detail.value,
+         ...(detail.sensitive && { sensitive: true })
+      }));
     }
 
     // Recursive function to fetch a resource and its dependencies
@@ -320,22 +319,22 @@ export async function fetchResourceTrace(claim) {
         const refs = [];
         
         // Check spec.resourceRefs (common in XRs)
-        if (resource.spec?.resourceRefs) {
+        if (Array.isArray(resource.spec.resourceRefs)) {
           refs.push(...resource.spec.resourceRefs);
-        }
+        }        
 
         // Check status.resourceRefs (common in XRs)
-        if (resource.status?.resourceRefs) {
+        if (Array.isArray(resource.status?.resourceRefs)) {
           refs.push(...resource.status.resourceRefs);
         }
 
         // Check status.resources (older format)
-        if (resource.status?.resources) {
+        if (Array.isArray(resource.status?.resources)) {
           refs.push(...resource.status.resources);
         }
 
         // Check connectionDetails references
-        if (resource.status?.connectionDetails) {
+        if (Array.isArray(resource.status?.connectionDetails)) {
           const connectionRefs = resource.status.connectionDetails
             .filter(detail => detail.type === 'Reference')
             .map(detail => detail.value);
@@ -343,12 +342,12 @@ export async function fetchResourceTrace(claim) {
         }
 
         // Check for direct references in status
-        if (resource.status?.resource?.refs) {
+        if (Array.isArray(resource.status?.resource?.refs)) {
           refs.push(...resource.status.resource.refs);
         }
 
         // Check for references in resource.references (dependency tracking)
-        if (resource.references) {
+        if (Array.isArray(resource.references)) {
           refs.push(...resource.references);
         }
 
@@ -400,10 +399,10 @@ export async function fetchResourceTrace(claim) {
 
     // Extract and fetch all managed resources from the composite
     const managedRefs = [];
-    if (xrData.spec?.resourceRefs) managedRefs.push(...xrData.spec.resourceRefs);
-    if (xrData.status?.resourceRefs) managedRefs.push(...xrData.status.resourceRefs);
-    if (xrData.status?.resources) managedRefs.push(...xrData.status.resources);
-    if (xrData.status?.resource?.refs) managedRefs.push(...xrData.status.resource.refs);
+    if (Array.isArray(xrData.spec?.resourceRefs)) managedRefs.push(...xrData.spec.resourceRefs);
+    if (Array.isArray(xrData.status?.resourceRefs)) managedRefs.push(...xrData.status.resourceRefs);
+    if (Array.isArray(xrData.status?.resources)) managedRefs.push(...xrData.status.resources);
+    if (Array.isArray(xrData.status?.resource?.refs)) managedRefs.push(...xrData.status.resource.refs);
 
     // Fetch all managed resources and their dependencies
     const managedResources = await Promise.all(
