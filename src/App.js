@@ -428,7 +428,7 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
       <div
         className="px-4 py-2 grid grid-cols-[300px,100px,100px,1fr] items-center gap-4 hover:bg-white group cursor-pointer"
         onClick={() => setShowYAML(true)}
-        style={{ paddingLeft: `${depth * 24}px` }}
+        style={{ paddingLeft: `${16 + depth * 24}px` }}
       >
         <div className="truncate text-gray-600 flex items-center">
           <span className="font-mono whitespace-pre">{depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}</span>
