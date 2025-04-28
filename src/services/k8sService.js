@@ -282,7 +282,9 @@ export async function fetchResourceTrace(claim) {
         let path;
         if (resourceKind && resourceApiVersion) {
           const [group, version] = resourceApiVersion.split('/');
-          const plural = resourceKind.toLowerCase() + 's';
+          const base   = resourceKind.toLowerCase();
+          const plural = base.endsWith('s') ? base : base + 's';
+
           
           // Try cluster-scoped path first for AWS resources
           if (group.includes('aws')) {

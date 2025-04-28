@@ -458,14 +458,12 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
             'No status message available'}
         </div>
       </div>
-
       {showYAML && (
         <YAMLModal
           resource={resource}
           onClose={() => setShowYAML(false)}
         />
       )}
-
       {/* Recursively render children */}
       {resource.dependencies?.map((child, idx) => (
         <ResourceRow
