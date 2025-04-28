@@ -428,16 +428,28 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
       <div
         className="px-4 py-2 grid grid-cols-[300px,100px,100px,1fr] items-center gap-4 hover:bg-white group cursor-pointer"
         onClick={() => setShowYAML(true)}
-        style={{ paddingLeft: `${16 + depth * 24}px` }}
       >
-        <div className="truncate text-gray-600 flex items-center">
-          <span className="font-mono whitespace-pre">{depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}</span>
+        <div
+          className="truncate text-gray-600 flex items-center"
+          style={{ marginLeft: depth * 24 + 'px' }}
+        >
+          <span className="font-mono whitespace-pre">
+            {depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}
+          </span>
           <span>{resource.kind}/{resource.metadata.name}</span>
         </div>
-        <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}> 
+        <div className={`text-center ${
+          resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True'
+            ? 'text-green-600'
+            : 'text-red-600'
+        }`}>
           {resource.status?.conditions?.find(c => c.type === 'Synced')?.status || '-'}
         </div>
-        <div className={`text-center ${resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`}> 
+        <div className={`text-center ${
+          resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True'
+            ? 'text-green-600'
+            : 'text-red-600'
+        }`}>
           {resource.status?.conditions?.find(c => c.type === 'Ready')?.status || '-'}
         </div>
         <div className="text-gray-900 break-words">
@@ -446,14 +458,16 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
             'No status message available'}
         </div>
       </div>
+
       {showYAML && (
         <YAMLModal
           resource={resource}
           onClose={() => setShowYAML(false)}
         />
       )}
+
       {/* Recursively render children */}
-      {resource.dependencies && resource.dependencies.length > 0 && resource.dependencies.map((child, idx) => (
+      {resource.dependencies?.map((child, idx) => (
         <ResourceRow
           key={`${child.kind}-${child.metadata.name}-${idx}`}
           resource={child}
