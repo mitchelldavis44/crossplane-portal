@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import ReactFlow, { Background, Controls, MiniMap, Handle } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { getKubeConfig, setContext, fetchCompositeResources, fetchResourceTrace } from './services/k8sService';
@@ -386,6 +386,33 @@ const GraphView = ({ traceData }) => {
 
 // Add the YAML modal component
 const YAMLModal = ({ resource, onClose }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [highlightedLines, setHighlightedLines] = useState([]);
+  const yamlContent = useMemo(() => resource ? toYAML(resource) : '', [resource]);
+  const preRef = useRef(null);
+
+  useEffect(() => {
+    if (!searchTerm) {
+      setHighlightedLines([]);
+      return;
+    }
+
+    const lines = yamlContent.split('\n');
+    const matches = lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => line.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    setHighlightedLines(matches.map(m => m.index));
+
+    // Scroll to first match if there are any matches
+    if (matches.length > 0 && preRef.current) {
+      const firstMatch = preRef.current.querySelector(`div:nth-child(${matches[0].index + 1})`);
+      if (firstMatch) {
+        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [searchTerm, yamlContent]);
+
   if (!resource) return null;
 
   return (
@@ -410,9 +437,37 @@ const YAMLModal = ({ resource, onClose }) => {
             </svg>
           </button>
         </div>
+        <div className="p-4 border-b border-gray-200">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="You know, for search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
         <div className="flex-1 overflow-auto p-6">
-          <pre className="bg-gray-50 rounded-lg p-4 text-sm font-mono text-gray-800 whitespace-pre">
-            {toYAML(resource)}
+          <pre ref={preRef} className="bg-gray-50 rounded-lg p-4 text-sm font-mono text-gray-800 whitespace-pre">
+            {yamlContent.split('\n').map((line, index) => (
+              <div 
+                key={index}
+                className={highlightedLines.includes(index) ? 'bg-yellow-100' : ''}
+              >
+                {line}
+              </div>
+            ))}
           </pre>
         </div>
       </div>

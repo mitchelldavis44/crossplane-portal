@@ -178,7 +178,6 @@ export async function fetchResourceTrace(claim) {
         // Get the actual Composition resource
         const compositionPath = `/apis/apiextensions.crossplane.io/v1/compositions/${compositionRef.name}`;
         composition = await fetchResource(compositionPath);
-        console.log('Fetched composition:', composition);
 
         // Get all revisions
         const revisionsPath = `/apis/apiextensions.crossplane.io/v1/compositionrevisions`;
@@ -405,8 +404,6 @@ export async function fetchResourceTrace(claim) {
       } : null,
       managedResources: []
     };
-
-    console.log('Trace result:', traceResult);
 
     // Extract and fetch all managed resources from the composite
     const managedRefs = [];
