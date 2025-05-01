@@ -436,7 +436,14 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
           <span className="font-mono whitespace-pre">
             {depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}
           </span>
-          <span>{resource.kind}/{resource.metadata.name}</span>
+          <span>
+            {resource.kind}/{resource.metadata.name}
+            {resource.compositionRevision && (
+              <span className="text-xs text-gray-400 ml-2">
+                (Composition: {resource.compositionRevision.spec.compositionRef.name})
+              </span>
+            )}
+          </span>
         </div>
         <div className={`text-center ${
           resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True'
@@ -477,38 +484,11 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
   );
 };
 
-const TraceView = ({ traceData }) => {
-  if (!traceData) return null;
-
-  return (
-    <div className="bg-gray-100 rounded-lg overflow-hidden">
-      <div className="px-4 py-2 bg-white border-b grid grid-cols-[300px,100px,100px,1fr] gap-4">
-        <div className="font-medium text-gray-700">NAME</div>
-        <div className="font-medium text-gray-700 text-center">SYNCED</div>
-        <div className="font-medium text-gray-700 text-center">READY</div>
-        <div className="font-medium text-gray-700">STATUS</div>
-      </div>
-      <div className="divide-y">
-        {/* Claim */}
-        {traceData.claim && <ResourceRow resource={traceData.claim} />}
-        {/* Composite (root of the tree) */}
-        {traceData.composite && <ResourceRow resource={traceData.composite} depth={1} />}
-      </div>
-    </div>
-  );
-};
-
 const TraceModal = ({ isOpen, onClose, claim }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('trace');
   const [traceData, setTraceData] = useState(null);
-
-  // --- Recursive resource tracing logic ---
-  const getResourceId = (resource) => {
-    if (!resource) return '';
-    return `${resource.kind}/${resource.apiVersion}/${resource.metadata?.namespace || ''}/${resource.metadata?.name}`;
-  };
 
   useEffect(() => {
     if (!isOpen || !claim) return;
@@ -518,7 +498,7 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
       setError(null);
       try {
         // This one call does everything: follows spec.resourceRefs,
-  // status.resourceRefs, status.resources, ownerRefs, connection details, events, etc.
+        // status.resourceRefs, status.resources, ownerRefs, connection details, events, etc.
         const fullTrace = await fetchResourceTrace(claim);
         setTraceData(fullTrace);
       } catch (err) {
@@ -612,6 +592,7 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
                       const data = {
                         claim: traceData.claim,
                         composite: traceData.composite,
+                        composition: traceData.composition,
                         managedResources: traceData.managedResources
                       };
                       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -639,14 +620,23 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
                   <ResourceRow resource={traceData.claim} />
 
                   {/* Composite row */}
-                  <ResourceRow resource={traceData.composite} depth={1} isLast={traceData.managedResources.length === 0} />
+                  <ResourceRow resource={traceData.composite} depth={1} />
+
+                  {/* Composition row */}
+                  {traceData.composition && (
+                    <ResourceRow 
+                      resource={traceData.composition} 
+                      depth={2} 
+                      isLast={traceData.managedResources.length === 0}
+                    />
+                  )}
 
                   {/* Managed resources rows */}
                   {traceData.managedResources.map((resource, index) => (
                     <ResourceRow 
                       key={`${resource.kind}-${resource.metadata.name}`}
                       resource={resource}
-                      depth={1}
+                      depth={3}
                       isLast={index === traceData.managedResources.length - 1}
                     />
                   ))}

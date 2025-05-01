@@ -171,8 +171,15 @@ export async function fetchResourceTrace(claim) {
     const compositionRef = xrData.spec?.compositionRef;
     let compositionRevision = null;
     let compositionRevisions = [];
+    let composition = null;
     if (compositionRef) {
       try {
+        console.log('Fetching composition with ref:', compositionRef);
+        // Get the actual Composition resource
+        const compositionPath = `/apis/apiextensions.crossplane.io/v1/compositions/${compositionRef.name}`;
+        composition = await fetchResource(compositionPath);
+        console.log('Fetched composition:', composition);
+
         // Get all revisions
         const revisionsPath = `/apis/apiextensions.crossplane.io/v1/compositionrevisions`;
         const revisions = await fetchResource(revisionsPath);
@@ -184,7 +191,7 @@ export async function fetchResourceTrace(claim) {
         const revisionPath = `/apis/apiextensions.crossplane.io/v1/compositionrevisions/${compositionRef.name}`;
         compositionRevision = await fetchResource(revisionPath);
       } catch (error) {
-        console.warn('Failed to fetch composition revision:', error);
+        console.warn('Failed to fetch composition or revision:', error);
       }
     }
 
@@ -390,14 +397,16 @@ export async function fetchResourceTrace(claim) {
     // Start with the composite resource and fetch all dependencies
     const traceResult = {
       claim,
-      composite: {
-        ...xrData,
+      composite: xrData,
+      composition: composition ? {
+        ...composition,
         compositionRevision,
-        compositionRevisions,
-        packageDependencies
-      },
+        compositionRevisions
+      } : null,
       managedResources: []
     };
+
+    console.log('Trace result:', traceResult);
 
     // Extract and fetch all managed resources from the composite
     const managedRefs = [];
@@ -416,9 +425,16 @@ export async function fetchResourceTrace(claim) {
     traceResult.managedResources = managedResources.filter(Boolean);
 
     // Add events and connection details for the claim and composite
-    traceResult.claim.events = await fetchResourceEvents(claim);
-    traceResult.composite.events = await fetchResourceEvents(xrData);
-    traceResult.composite.connectionDetails = processConnectionDetails(xrData);
+    try {
+      traceResult.claim.events = await fetchResourceEvents(claim);
+      traceResult.composite.events = await fetchResourceEvents(xrData);
+      if (composition) {
+        traceResult.composition.events = await fetchResourceEvents(composition);
+      }
+      traceResult.composite.connectionDetails = processConnectionDetails(xrData);
+    } catch (error) {
+      console.warn('Failed to fetch events or connection details:', error);
+    }
 
     return traceResult;
   } catch (error) {
