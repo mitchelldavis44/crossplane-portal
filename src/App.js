@@ -475,13 +475,68 @@ const YAMLModal = ({ resource, onClose }) => {
   );
 };
 
+// Utility to build a tree from a flat managedResources array
+function buildResourceTree(managedResources) {
+  if (!Array.isArray(managedResources)) return [];
+  const byKey = {};
+  managedResources.forEach(r => {
+    byKey[`${r.kind}/${r.metadata?.name}`] = { ...r, dependencies: [] };
+  });
+
+  // Attach children to their parents
+  managedResources.forEach(r => {
+    if (Array.isArray(r.references)) {
+      r.references.forEach(ref => {
+        const parentKey = `${ref.kind}/${ref.name}`;
+        if (byKey[parentKey]) {
+          byKey[parentKey].dependencies.push(byKey[`${r.kind}/${r.metadata?.name}`]);
+        }
+      });
+    }
+  });
+
+  // Find top-level resources (not referenced by others)
+  const referenced = new Set();
+  managedResources.forEach(r => {
+    if (Array.isArray(r.references)) {
+      r.references.forEach(ref => referenced.add(`${r.kind}/${r.metadata?.name}`));
+    }
+  });
+
+  return managedResources
+    .filter(r => !referenced.has(`${r.kind}/${r.metadata?.name}`))
+    .map(r => byKey[`${r.kind}/${r.metadata?.name}`]);
+}
+
 const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
   const [showYAML, setShowYAML] = useState(false);
+
+  // Get the composition resource name from the resource
+  const getResourceName = (resource) => {
+    // If this is a managed resource (depth >= 3), show the composition-resource-name annotation if present
+    if (depth >= 3) {
+      const compResName = resource.metadata?.annotations?.['crossplane.io/composition-resource-name'];
+      if (compResName) return compResName;
+      // Fallback to previous logic
+      return resource.spec?.resourceKind || resource.kind || '-';
+    }
+    // For claim/composite/composition, show the resource name
+    if (resource.spec?.resourceRef?.name) {
+      return resource.spec.resourceRef.name;
+    }
+    if (resource.spec?.compositionRef?.name) {
+      return resource.spec.compositionRef.name;
+    }
+    if (resource.spec?.compositionRevisionRef?.name) {
+      return resource.spec.compositionRevisionRef.name;
+    }
+    return resource.metadata?.name || '-';
+  };
 
   return (
     <>
       <div
-        className="px-4 py-2 grid grid-cols-[300px,100px,100px,1fr] items-center gap-4 hover:bg-white group cursor-pointer"
+        className="px-4 py-2 grid grid-cols-[300px,150px,100px,100px,1fr] items-center gap-4 hover:bg-white group cursor-pointer"
         onClick={() => setShowYAML(true)}
       >
         <div
@@ -499,6 +554,9 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
               </span>
             )}
           </span>
+        </div>
+        <div className="text-gray-600 truncate">
+          {getResourceName(resource)}
         </div>
         <div className={`text-center ${
           resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True'
@@ -636,8 +694,9 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
               <div className="font-mono bg-gray-50 rounded-lg border border-gray-200 overflow-hidden flex flex-col h-full">
                 {/* Header row with download button */}
                 <div className="bg-gray-100 flex items-center px-4 py-2 sticky top-0 z-10">
-                  <div className="grid grid-cols-[300px,100px,100px,1fr] items-center gap-4 text-sm font-medium text-gray-600 flex-1">
+                  <div className="grid grid-cols-[300px,150px,100px,100px,1fr] items-center gap-4 text-sm font-medium text-gray-600 flex-1">
                     <div>NAME</div>
+                    <div>RESOURCE</div>
                     <div className="text-center">SYNCED</div>
                     <div className="text-center">READY</div>
                     <div>STATUS</div>
@@ -686,13 +745,13 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
                     />
                   )}
 
-                  {/* Managed resources rows */}
-                  {traceData.managedResources.map((resource, index) => (
-                    <ResourceRow 
+                  {/* Managed resources tree */}
+                  {buildResourceTree(traceData.managedResources).map((resource, index, arr) => (
+                    <ResourceRow
                       key={`${resource.kind}-${resource.metadata.name}`}
                       resource={resource}
                       depth={3}
-                      isLast={index === traceData.managedResources.length - 1}
+                      isLast={index === arr.length - 1}
                     />
                   ))}
                 </div>
