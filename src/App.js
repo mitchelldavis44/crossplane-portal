@@ -532,57 +532,34 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
     }
     return resource.metadata?.name || '-';
   };
-
   return (
     <>
-      <div
-        className="px-4 py-2 grid grid-cols-[300px,150px,100px,100px,1fr] items-center gap-4 hover:bg-white group cursor-pointer"
-        onClick={() => setShowYAML(true)}
-      >
-        <div
-          className="truncate text-gray-600 flex items-center"
-          style={{ marginLeft: depth * 24 + 'px' }}
-        >
-          <span className="font-mono whitespace-pre">
-            {depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}
-          </span>
-          <span>
-            {resource.kind}/{resource.metadata.name}
-            {resource.compositionRevision && (
-              <span className="text-xs text-gray-400 ml-2">
-                (Composition: {resource.compositionRevision.spec.compositionRef.name})
-              </span>
-            )}
-          </span>
-        </div>
-        <div className="text-gray-600 truncate">
+      <tr className="hover:bg-white group cursor-pointer">
+        <td className="px-4 py-2 text-gray-600" style={{ paddingLeft: depth * 24 + 'px', whiteSpace: 'pre' }} onClick={() => setShowYAML(true)}>
+          {depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}
+          {resource.kind}/{resource.metadata.name}
+        </td>
+        <td className="px-4 py-2 text-gray-600 break-words whitespace-normal" onClick={() => setShowYAML(true)}>
           {getResourceName(resource)}
-        </div>
-        <div className={`text-center ${
-          resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True'
-            ? 'text-green-600'
-            : 'text-red-600'
-        }`}>
+        </td>
+        <td className={`px-4 py-2 text-center ${resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`} onClick={() => setShowYAML(true)}>
           {resource.status?.conditions?.find(c => c.type === 'Synced')?.status || '-'}
-        </div>
-        <div className={`text-center ${
-          resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True'
-            ? 'text-green-600'
-            : 'text-red-600'
-        }`}>
+        </td>
+        <td className={`px-4 py-2 text-center ${resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'text-green-600' : 'text-red-600'}`} onClick={() => setShowYAML(true)}>
           {resource.status?.conditions?.find(c => c.type === 'Ready')?.status || '-'}
-        </div>
-        <div className="text-gray-900 break-words">
+        </td>
+        <td className="px-4 py-2 text-gray-900 break-words" onClick={() => setShowYAML(true)}>
           {resource.status?.conditions?.find(c => c.type === 'Ready')?.message ||
             resource.status?.conditions?.find(c => c.type === 'Synced')?.message ||
             'No status message available'}
-        </div>
-      </div>
+        </td>
+      </tr>
       {showYAML && (
-        <YAMLModal
-          resource={resource}
-          onClose={() => setShowYAML(false)}
-        />
+        <tr>
+          <td colSpan={5} className="bg-white p-0">
+            <YAMLModal resource={resource} onClose={() => setShowYAML(false)} />
+          </td>
+        </tr>
       )}
       {/* Recursively render children */}
       {resource.dependencies?.map((child, idx) => (
@@ -692,15 +669,43 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
           ) : (
             activeTab === 'trace' ? (
               <div className="font-mono bg-gray-50 rounded-lg border border-gray-200 overflow-hidden flex flex-col h-full">
-                {/* Header row with download button */}
-                <div className="bg-gray-100 flex items-center px-4 py-2 sticky top-0 z-10">
-                  <div className="grid grid-cols-[300px,150px,100px,100px,1fr] items-center gap-4 text-sm font-medium text-gray-600 flex-1">
-                    <div>NAME</div>
-                    <div>RESOURCE</div>
-                    <div className="text-center">SYNCED</div>
-                    <div className="text-center">READY</div>
-                    <div>STATUS</div>
-                  </div>
+                <div className="overflow-x-auto w-full h-full">
+                  <table className="min-w-full table-fixed border-separate border-spacing-0">
+                    <thead className="bg-gray-100 sticky top-0 z-10">
+                      <tr>
+                        <th className="w-72 px-4 py-2 text-left text-sm font-medium text-gray-600">NAME</th>
+                        <th className="w-96 px-4 py-2 text-left text-sm font-medium text-gray-600">RESOURCE</th>
+                        <th className="w-24 px-4 py-2 text-center text-sm font-medium text-gray-600">SYNCED</th>
+                        <th className="w-24 px-4 py-2 text-center text-sm font-medium text-gray-600">READY</th>
+                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {/* Claim row */}
+                      <ResourceRow resource={traceData.claim} />
+                      {/* Composite row */}
+                      <ResourceRow resource={traceData.composite} depth={1} />
+                      {/* Composition row */}
+                      {traceData.composition && (
+                        <ResourceRow 
+                          resource={traceData.composition} 
+                          depth={2} 
+                          isLast={traceData.managedResources.length === 0}
+                        />
+                      )}
+                      {/* Managed resources tree */}
+                      {buildResourceTree(traceData.managedResources).map((resource, index, arr) => (
+                        <ResourceRow
+                          key={`${resource.kind}-${resource.metadata.name}`}
+                          resource={resource}
+                          depth={3}
+                          isLast={index === arr.length - 1}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="absolute top-2 right-4 z-20">
                   <button
                     onClick={() => {
                       const data = {
@@ -719,41 +724,13 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
                       document.body.removeChild(a);
                       URL.revokeObjectURL(url);
                     }}
-                    className="shrink-0 px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded hover:bg-blue-100 flex items-center gap-1 ml-4"
+                    className="shrink-0 px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded hover:bg-blue-100 flex items-center gap-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
                     Download
                   </button>
-                </div>
-
-                {/* Scrollable data rows */}
-                <div className="divide-y divide-gray-200 overflow-y-auto">
-                  {/* Claim row */}
-                  <ResourceRow resource={traceData.claim} />
-
-                  {/* Composite row */}
-                  <ResourceRow resource={traceData.composite} depth={1} />
-
-                  {/* Composition row */}
-                  {traceData.composition && (
-                    <ResourceRow 
-                      resource={traceData.composition} 
-                      depth={2} 
-                      isLast={traceData.managedResources.length === 0}
-                    />
-                  )}
-
-                  {/* Managed resources tree */}
-                  {buildResourceTree(traceData.managedResources).map((resource, index, arr) => (
-                    <ResourceRow
-                      key={`${resource.kind}-${resource.metadata.name}`}
-                      resource={resource}
-                      depth={3}
-                      isLast={index === arr.length - 1}
-                    />
-                  ))}
                 </div>
               </div>
             ) : (
