@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import ReactFlow, { Background, Controls, MiniMap, Handle } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { getKubeConfig, setContext, fetchCompositeResources, fetchResourceTrace } from './services/k8sService';
+import { getKubeConfig, setContext, fetchCompositeResources, fetchResourceTrace, fetchSpecificClaim } from './services/k8sService';
 import yaml from 'js-yaml';
 import TitleBar from './components/TitleBar';
 
@@ -1006,7 +1006,10 @@ export default function Home() {
       const currentUIState = {
         showYaml,
         showTraceModal,
-        selectedClaimId: selectedClaim?.metadata?.uid
+        selectedClaimId: selectedClaim?.metadata?.uid,
+        selectedClaimKind: selectedClaim?.kind,
+        selectedClaimName: selectedClaim?.metadata?.name,
+        selectedClaimNamespace: selectedClaim?.claimNamespace
       };
 
       // Refresh resources
@@ -1017,20 +1020,34 @@ export default function Home() {
       if (currentUIState.selectedClaimId) {
         const updatedClaim = resources.find(r => r.metadata.uid === currentUIState.selectedClaimId);
         if (updatedClaim) {
-          // Restore the claim with preserved UI state
-          setSelectedClaim({
-            ...updatedClaim,
-            _uiState: {
-              showYaml: currentUIState.showYaml,
-              showTraceModal: currentUIState.showTraceModal
-            }
-          });
-          // Restore UI state
+          // Fetch the latest details for the selected claim
+          try {
+            const latestClaim = await fetchSpecificClaim(
+              currentUIState.selectedClaimKind,
+              currentUIState.selectedClaimName,
+              currentUIState.selectedClaimNamespace
+            );
+            setSelectedClaim({
+              ...latestClaim,
+              _uiState: {
+                showYaml: currentUIState.showYaml,
+                showTraceModal: currentUIState.showTraceModal
+              }
+            });
+          } catch (err) {
+            // If fetching details fails, fall back to the updated summary
+            setSelectedClaim({
+              ...updatedClaim,
+              _uiState: {
+                showYaml: currentUIState.showYaml,
+                showTraceModal: currentUIState.showTraceModal
+              }
+            });
+          }
           setShowYaml(currentUIState.showYaml);
           setShowTraceModal(currentUIState.showTraceModal);
         }
       }
-      
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -1038,7 +1055,7 @@ export default function Home() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [selectedClaim?.metadata?.uid, showYaml, showTraceModal]);
+  }, [selectedClaim?.metadata?.uid, selectedClaim?.kind, selectedClaim?.metadata?.name, selectedClaim?.claimNamespace, showYaml, showTraceModal]);
 
   // Set up polling effect for auto-refresh
   useEffect(() => {
