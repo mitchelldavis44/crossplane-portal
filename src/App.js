@@ -475,39 +475,6 @@ const YAMLModal = ({ resource, onClose }) => {
   );
 };
 
-// Utility to build a tree from a flat managedResources array
-function buildResourceTree(managedResources) {
-  if (!Array.isArray(managedResources)) return [];
-  const byKey = {};
-  managedResources.forEach(r => {
-    byKey[`${r.kind}/${r.metadata?.name}`] = { ...r, dependencies: [] };
-  });
-
-  // Attach children to their parents
-  managedResources.forEach(r => {
-    if (Array.isArray(r.references)) {
-      r.references.forEach(ref => {
-        const parentKey = `${ref.kind}/${ref.name}`;
-        if (byKey[parentKey]) {
-          byKey[parentKey].dependencies.push(byKey[`${r.kind}/${r.metadata?.name}`]);
-        }
-      });
-    }
-  });
-
-  // Find top-level resources (not referenced by others)
-  const referenced = new Set();
-  managedResources.forEach(r => {
-    if (Array.isArray(r.references)) {
-      r.references.forEach(ref => referenced.add(`${r.kind}/${r.metadata?.name}`));
-    }
-  });
-
-  return managedResources
-    .filter(r => !referenced.has(`${r.kind}/${r.metadata?.name}`))
-    .map(r => byKey[`${r.kind}/${r.metadata?.name}`]);
-}
-
 const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
   const [showYAML, setShowYAML] = useState(false);
 
@@ -694,12 +661,12 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
                         />
                       )}
                       {/* Managed resources tree */}
-                      {buildResourceTree(traceData.managedResources).map((resource, index, arr) => (
+                      {traceData.managedResources.map((resource, index) => (
                         <ResourceRow
                           key={`${resource.kind}-${resource.metadata.name}`}
                           resource={resource}
                           depth={3}
-                          isLast={index === arr.length - 1}
+                          isLast={index === traceData.managedResources.length - 1}
                         />
                       ))}
                     </tbody>
