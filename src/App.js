@@ -644,7 +644,35 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
                         <th className="w-96 px-4 py-2 text-left text-sm font-medium text-gray-600">RESOURCE</th>
                         <th className="w-24 px-4 py-2 text-center text-sm font-medium text-gray-600">SYNCED</th>
                         <th className="w-24 px-4 py-2 text-center text-sm font-medium text-gray-600">READY</th>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">STATUS</th>
+                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 flex items-center justify-between">
+                          <span>STATUS</span>
+                          <button
+                            onClick={() => {
+                              const data = {
+                                claim: traceData.claim,
+                                composite: traceData.composite,
+                                composition: traceData.composition,
+                                managedResources: traceData.managedResources
+                              };
+                              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${traceData.claim.kind}-${traceData.claim.metadata.name}-trace.json`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="shrink-0 px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded hover:bg-blue-100 flex items-center gap-1 ml-4"
+                            style={{ float: 'right' }}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Download
+                          </button>
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -671,33 +699,6 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
                       ))}
                     </tbody>
                   </table>
-                </div>
-                <div className="absolute top-2 right-4 z-20">
-                  <button
-                    onClick={() => {
-                      const data = {
-                        claim: traceData.claim,
-                        composite: traceData.composite,
-                        composition: traceData.composition,
-                        managedResources: traceData.managedResources
-                      };
-                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `${traceData.claim.kind}-${traceData.claim.metadata.name}-trace.json`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}
-                    className="shrink-0 px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded hover:bg-blue-100 flex items-center gap-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Download
-                  </button>
                 </div>
               </div>
             ) : (
