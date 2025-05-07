@@ -388,12 +388,14 @@ const GraphView = ({ traceData }) => {
 const YAMLModal = ({ resource, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedLines, setHighlightedLines] = useState([]);
+  const [currentMatch, setCurrentMatch] = useState(0);
   const yamlContent = useMemo(() => resource ? toYAML(resource) : '', [resource]);
   const preRef = useRef(null);
 
   useEffect(() => {
     if (!searchTerm) {
       setHighlightedLines([]);
+      setCurrentMatch(0);
       return;
     }
 
@@ -401,8 +403,8 @@ const YAMLModal = ({ resource, onClose }) => {
     const matches = lines
       .map((line, index) => ({ line, index }))
       .filter(({ line }) => line.toLowerCase().includes(searchTerm.toLowerCase()));
-    
     setHighlightedLines(matches.map(m => m.index));
+    setCurrentMatch(0);
 
     // Scroll to first match if there are any matches
     if (matches.length > 0 && preRef.current) {
@@ -412,6 +414,26 @@ const YAMLModal = ({ resource, onClose }) => {
       }
     }
   }, [searchTerm, yamlContent]);
+
+  // Scroll to the current match when it changes
+  useEffect(() => {
+    if (highlightedLines.length > 0 && preRef.current) {
+      const matchLine = highlightedLines[currentMatch];
+      const matchElem = preRef.current.querySelector(`div:nth-child(${matchLine + 1})`);
+      if (matchElem) {
+        matchElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [currentMatch, highlightedLines]);
+
+  const handleNext = () => {
+    if (highlightedLines.length === 0) return;
+    setCurrentMatch((prev) => (prev + 1) % highlightedLines.length);
+  };
+  const handleBack = () => {
+    if (highlightedLines.length === 0) return;
+    setCurrentMatch((prev) => (prev - 1 + highlightedLines.length) % highlightedLines.length);
+  };
 
   if (!resource) return null;
 
@@ -438,7 +460,7 @@ const YAMLModal = ({ resource, onClose }) => {
           </button>
         </div>
         <div className="p-4 border-b border-gray-200">
-          <div className="relative">
+          <div className="relative flex items-center gap-2">
             <input
               type="text"
               placeholder="You know, for search..."
@@ -447,14 +469,34 @@ const YAMLModal = ({ resource, onClose }) => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <>
+                <button
+                  onClick={handleBack}
+                  className="px-2 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  title="Previous match"
+                >
+                  &#8592;
+                </button>
+                <span className="text-xs text-gray-500 select-none">
+                  {highlightedLines.length > 0 ? `${currentMatch + 1} of ${highlightedLines.length}` : '0 of 0'}
+                </span>
+                <button
+                  onClick={handleNext}
+                  className="px-2 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  title="Next match"
+                >
+                  &#8594;
+                </button>
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="ml-2 text-gray-400 hover:text-gray-600"
+                  title="Clear search"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -463,7 +505,13 @@ const YAMLModal = ({ resource, onClose }) => {
             {yamlContent.split('\n').map((line, index) => (
               <div 
                 key={index}
-                className={highlightedLines.includes(index) ? 'bg-yellow-100' : ''}
+                className={
+                  highlightedLines.includes(index)
+                    ? (highlightedLines[currentMatch] === index
+                        ? 'bg-yellow-300' // Active match
+                        : 'bg-yellow-100') // Other matches
+                    : ''
+                }
               >
                 {line}
               </div>
