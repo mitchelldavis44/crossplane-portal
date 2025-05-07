@@ -535,7 +535,7 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
   return (
     <>
       <tr className="hover:bg-white group cursor-pointer">
-        <td className="px-4 py-2 text-gray-600" style={{ paddingLeft: depth * 24 + 'px', whiteSpace: 'pre' }} onClick={() => setShowYAML(true)}>
+        <td className="px-4 py-2 text-gray-600" style={{ paddingLeft: `${16 + depth * 24}px`, whiteSpace: 'pre' }} onClick={() => setShowYAML(true)}>
           {depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}
           {resource.kind}/{resource.metadata.name}
         </td>
