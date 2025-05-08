@@ -152,7 +152,7 @@ export async function fetchResourceTrace(claim) {
     console.log('Fetching resource trace for claim:', claim);
     
     // Get the composite resource name from the claim
-    const compositeRef = claim.spec?.resourceRef || claim.spec?.compositeRef;
+    const compositeRef = claim.spec?.resourceRef;
     if (!compositeRef) {
       throw new Error('No composite resource reference found in claim');
     }
