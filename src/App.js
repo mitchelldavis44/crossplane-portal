@@ -525,6 +525,9 @@ const YAMLModal = ({ resource, onClose }) => {
 
 const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
   const [showYAML, setShowYAML] = useState(false);
+  // Only for managed resources (depth >= 3)
+  const isManaged = depth >= 3 && Array.isArray(resource.dependencies) && resource.dependencies.length > 0;
+  const [collapsed, setCollapsed] = useState(false);
 
   // Get the composition resource name from the resource
   const getResourceName = (resource) => {
@@ -550,9 +553,23 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
   return (
     <>
       <tr className="hover:bg-white group cursor-pointer">
-        <td className="px-4 py-2 text-gray-600" style={{ paddingLeft: `${16 + depth * 24}px`, whiteSpace: 'pre' }} onClick={() => setShowYAML(true)}>
+        <td className="px-4 py-2 text-gray-600" style={{ paddingLeft: `${16 + depth * 24}px`, whiteSpace: 'pre', display: 'flex', alignItems: 'center' }} onClick={() => setShowYAML(true)}>
           {depth > 0 ? (isLast ? '└─ ' : '├─ ') : ''}
-          {resource.kind}/{resource.metadata.name}
+          {/* Chevron for managed resources with children */}
+          {isManaged && (
+            <button
+              onClick={e => { e.stopPropagation(); setCollapsed(c => !c); }}
+              className="mr-2 focus:outline-none hover:bg-gray-200 rounded p-0.5"
+              tabIndex={-1}
+              aria-label={collapsed ? 'Expand' : 'Collapse'}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', marginRight: 8 }}
+            >
+              <svg className={`w-5 h-5 text-gray-500 transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 20 20">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 8l4 4 4-4" />
+              </svg>
+            </button>
+          )}
+          <span style={{ marginLeft: isManaged ? 0 : 8 }}>{resource.kind}/{resource.metadata.name}</span>
         </td>
         <td className="px-4 py-2 text-gray-600 break-words whitespace-normal" onClick={() => setShowYAML(true)}>
           {getResourceName(resource)}
@@ -576,8 +593,8 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
           </td>
         </tr>
       )}
-      {/* Recursively render children */}
-      {resource.dependencies?.map((child, idx) => (
+      {/* Recursively render children resources, only if not collapsed for MRs */}
+      {(!isManaged || !collapsed) && resource.dependencies?.map((child, idx) => (
         <ResourceRow
           key={`${child.kind}-${child.metadata.name}-${idx}`}
           resource={child}
