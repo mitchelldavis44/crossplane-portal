@@ -55,7 +55,11 @@
       "entitlementsInherit": "entitlements.mac.plist",
       "gatekeeperAssess": false,
       "strictVerify": false,
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "identity": "Developer ID Application",
+      "notarize": {
+        "teamId": "SX9LD5QVU6"
+      }
     }
   },
   "eslintConfig": {
