@@ -527,6 +527,7 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
   const [showYAML, setShowYAML] = useState(false);
   // Only for managed resources (depth >= 3)
   const isManaged = depth >= 3 && Array.isArray(resource.dependencies) && resource.dependencies.length > 0;
+  // Always start expanded in Trace View
   const [collapsed, setCollapsed] = useState(false);
 
   // Get the composition resource name from the resource
@@ -550,6 +551,10 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
     }
     return resource.metadata?.name || '-';
   };
+
+  // Always render dependencies for XRs (depth < 3)
+  const shouldShowDependencies = !isManaged || !collapsed;
+
   return (
     <>
       <tr className="hover:bg-white group cursor-pointer">
@@ -593,8 +598,8 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
           </td>
         </tr>
       )}
-      {/* Recursively render children resources, only if not collapsed for MRs */}
-      {(!isManaged || !collapsed) && resource.dependencies?.map((child, idx) => (
+      {/* Always show dependencies for XRs, only collapse for managed resources */}
+      {shouldShowDependencies && resource.dependencies?.map((child, idx) => (
         <ResourceRow
           key={`${child.kind}-${child.metadata.name}-${idx}`}
           resource={child}
