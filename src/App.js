@@ -986,6 +986,7 @@ export default function Home() {
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [showYaml, setShowYaml] = useState(false);
   const [selectedNamespace, setSelectedNamespace] = useState('all');
+  const [selectedKinds, setSelectedKinds] = useState([]);
   const [showTraceModal, setShowTraceModal] = useState(false);
   const [kubeContexts, setKubeContexts] = useState([]);
   const [currentContext, setCurrentContext] = useState('');
@@ -1205,10 +1206,15 @@ export default function Home() {
   // Get unique namespaces from claims
   const namespaces = [...new Set(xrs.map(xr => xr.claimNamespace).filter(Boolean))].sort();
 
-  // Filter claims by selected namespace
-  const filteredClaims = selectedNamespace === 'all' 
-    ? xrs 
-    : xrs.filter(xr => xr.claimNamespace === selectedNamespace);
+  // Get kinds from claims
+  const kinds = Array.from(new Set(xrs.map(xr => xr.kind))).sort();
+
+  // Filter claims by selected namespace and kinds
+  const filteredClaims = xrs.filter(xr => {
+    const namespaceMatch = selectedNamespace === 'all' || xr.claimNamespace === selectedNamespace;
+    const kindMatch = selectedKinds.length === 0 || selectedKinds.includes(xr.kind);
+    return namespaceMatch && kindMatch;
+  });
 
   // Group claims by namespace
   const claimsByNamespace = filteredClaims.reduce((acc, claim) => {
@@ -1328,19 +1334,51 @@ export default function Home() {
                     <h2 className="text-2xl font-semibold text-gray-900">Claims</h2>
                   </div>
                   
-                  <div className="shrink-0 mb-6">
+                  <div className="shrink-0 mb-6 space-y-4">
                     {/* Namespace filter */}
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Namespace</label>
-                    <select
-                      value={selectedNamespace}
-                      onChange={(e) => setSelectedNamespace(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      <option value="all">All Namespaces</option>
-                      {namespaces.map(ns => (
-                        <option key={ns} value={ns}>{ns}</option>
-                      ))}
-                    </select>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Namespace</label>
+                      <select
+                        value={selectedNamespace}
+                        onChange={(e) => setSelectedNamespace(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="all">All Namespaces</option>
+                        {namespaces.map(ns => (
+                          <option key={ns} value={ns}>{ns}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Kind filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Kind</label>
+                      <div className="flex flex-wrap gap-2">
+                        {kinds.map(kind => {
+                          const count = xrs.filter(xr => xr.kind === kind).length;
+                          const isSelected = selectedKinds.includes(kind);
+                          return (
+                            <button
+                              key={kind}
+                              onClick={() => {
+                                setSelectedKinds(prev => 
+                                  isSelected 
+                                    ? prev.filter(k => k !== kind)
+                                    : [...prev, kind]
+                                );
+                              }}
+                              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                isSelected
+                                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              {kind} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto min-h-0 relative">
