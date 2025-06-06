@@ -921,11 +921,9 @@ const CollapsibleNamespace = ({ namespace, claims, isExpanded, onToggle, onSelec
             </div>
           </div>
         </div>
-        
         {/* Only show namespace status when collapsed */}
         {!isExpanded && <NamespaceStatusIndicator claims={claims} />}
       </div>
-      
       {isExpanded && (
         <div className="mt-2 space-y-2 pl-4">
           {claims.map((xr) => (
@@ -937,34 +935,22 @@ const CollapsibleNamespace = ({ namespace, claims, isExpanded, onToggle, onSelec
               <div className="flex items-center justify-between">
                 <h4 className="text-lg font-medium text-blue-600">{xr.metadata.name}</h4>
                 <div className="flex items-center space-x-3">
-                  <div className="relative group">
-                    <div className="flex items-center space-x-1">
-                      <div className={`w-2 h-2 rounded-full ${
-                        xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' 
-                          ? 'bg-green-500' 
-                          : 'bg-red-500'
-                      }`} />
-                      <span className="text-xs text-gray-500">Ready</span>
-                    </div>
-                    <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
-                      <div className="font-medium">Ready: {xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True' ? 'True' : 'False'}</div>
-                      <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Ready')?.message || 'No status message available'}</div>
-                    </div>
-                  </div>
-                  <div className="relative group">
-                    <div className="flex items-center space-x-1">
-                      <div className={`w-2 h-2 rounded-full ${
-                        xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' 
-                          ? 'bg-green-500' 
-                          : 'bg-red-500'
-                      }`} />
-                      <span className="text-xs text-gray-500">Synced</span>
-                    </div>
-                    <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 bg-gray-900 text-white text-sm rounded-lg py-1 px-2 right-0 transform translate-y-1">
-                      <div className="font-medium">Synced: {xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True' ? 'True' : 'False'}</div>
-                      <div className="text-xs text-gray-300 mt-1">{xr.status?.conditions?.find(c => c.type === 'Synced')?.message || 'No status message available'}</div>
-                    </div>
-                  </div>
+                  {/* Pill-shaped Ready badge */}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    xr.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    Ready
+                  </span>
+                  {/* Pill-shaped Synced badge */}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    xr.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    Synced
+                  </span>
                 </div>
               </div>
               <div className="mt-2 text-sm text-gray-600">Kind: {xr.kind}</div>
