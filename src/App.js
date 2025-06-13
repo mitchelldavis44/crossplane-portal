@@ -523,6 +523,12 @@ const YAMLModal = ({ resource, onClose }) => {
   );
 };
 
+// Helper to get the status message for a condition type
+function getStatusMessage(resource, type) {
+  const cond = resource.status?.conditions?.find(c => c.type === type);
+  return cond?.message || cond?.reason || 'No status message available';
+}
+
 const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
   const [showYAML, setShowYAML] = useState(false);
   // Only for managed resources (depth >= 3)
@@ -586,9 +592,7 @@ const ResourceRow = ({ resource, depth = 0, isLast = false }) => {
           {resource.status?.conditions?.find(c => c.type === 'Ready')?.status || '-'}
         </td>
         <td className="px-4 py-2 text-gray-900 break-words" onClick={() => setShowYAML(true)}>
-          {resource.status?.conditions?.find(c => c.type === 'Ready')?.message ||
-            resource.status?.conditions?.find(c => c.type === 'Synced')?.message ||
-            'No status message available'}
+          {getStatusMessage(resource, 'Ready') || getStatusMessage(resource, 'Synced')}
         </td>
       </tr>
       {showYAML && (
