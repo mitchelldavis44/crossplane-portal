@@ -61,6 +61,44 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+/* Enhanced node styling */
+.graph-container .react-flow__node {
+  transition: all 0.2s ease;
+}
+
+.graph-container .react-flow__node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.graph-container .react-flow__node.selected {
+  z-index: 10;
+}
+
+/* Edge styling */
+.graph-container .react-flow__edge {
+  transition: stroke-width 0.2s ease;
+}
+
+.graph-container .react-flow__edge:hover {
+  stroke-width: 3;
+}
+
+.graph-container .react-flow__edge.selected {
+  stroke-width: 3;
+}
+
+/* Edge labels */
+.graph-container .react-flow__edge-label {
+  background: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 /* Adjust ReactFlow controls when panel is open */
 .graph-container:has(.resource-details-panel) .react-flow__controls {
   right: 440px;
@@ -68,6 +106,160 @@
 
 .graph-container:has(.resource-details-panel) .react-flow__renderer {
   margin-right: 400px;
+}
+
+/* Resource Details Panel */
+.resource-details-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 400px;
+  background: white;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e2e8f0;
+}
+
+.resource-details-panel .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.resource-details-panel .panel-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.resource-details-panel .panel-header button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+}
+
+.resource-details-panel .panel-header button:hover {
+  background-color: #f3f4f6;
+}
+
+.resource-details-panel .space-y-4 > * + * {
+  margin-top: 1rem;
+}
+
+.resource-details-panel .text-sm {
+  font-size: 0.875rem;
+}
+
+.resource-details-panel .font-medium {
+  font-weight: 500;
+}
+
+.resource-details-panel .text-gray-500 {
+  color: #6b7280;
+}
+
+.resource-details-panel .text-gray-700 {
+  color: #374151;
+}
+
+.resource-details-panel .text-green-800 {
+  color: #166534;
+}
+
+.resource-details-panel .text-red-800 {
+  color: #991b1b;
+}
+
+.resource-details-panel .bg-green-100 {
+  background-color: #dcfce7;
+}
+
+.resource-details-panel .bg-red-100 {
+  background-color: #fee2e2;
+}
+
+.resource-details-panel .px-2\.5 {
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+}
+
+.resource-details-panel .py-0\.5 {
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+}
+
+.resource-details-panel .rounded-full {
+  border-radius: 9999px;
+}
+
+.resource-details-panel .text-xs {
+  font-size: 0.75rem;
+}
+
+.resource-details-panel .font-mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.resource-details-panel .whitespace-pre {
+  white-space: pre;
+}
+
+.resource-details-panel .bg-gray-50 {
+  background-color: #f9fafb;
+}
+
+.resource-details-panel .border {
+  border-width: 1px;
+}
+
+.resource-details-panel .border-gray-200 {
+  border-color: #e5e7eb;
+}
+
+.resource-details-panel .rounded-lg {
+  border-radius: 0.5rem;
+}
+
+.resource-details-panel .max-h-\[500px\] {
+  max-height: 500px;
+}
+
+.resource-details-panel .overflow-auto {
+  overflow: auto;
+}
+
+.resource-details-panel .p-4 {
+  padding: 1rem;
+}
+
+.resource-details-panel .mb-2 {
+  margin-bottom: 0.5rem;
+}
+
+.resource-details-panel .gap-2 {
+  gap: 0.5rem;
+}
+
+.resource-details-panel .flex {
+  display: flex;
+}
+
+.resource-details-panel .inline-flex {
+  display: inline-flex;
+}
+
+.resource-details-panel .items-center {
+  align-items: center;
 }
 
 /* Default control positions */
@@ -98,4 +290,188 @@
 .react-flow__minimap {
   bottom: 40px !important;
   left: 40px !important;
+}
+
+/* Inline resource details panel styles */
+.space-y-6 > * + * {
+  margin-top: 1.5rem;
+}
+
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
+
+.mb-3 {
+  margin-bottom: 0.75rem;
+}
+
+.mb-1 {
+  margin-bottom: 0.25rem;
+}
+
+.mt-1 {
+  margin-top: 0.25rem;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.px-6 {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.py-4 {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.p-3 {
+  padding: 0.75rem;
+}
+
+.p-4 {
+  padding: 1rem;
+}
+
+.p-2 {
+  padding: 0.5rem;
+}
+
+.rounded-lg {
+  border-radius: 0.5rem;
+}
+
+.hover\:bg-gray-100:hover {
+  background-color: #f3f4f6;
+}
+
+.transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+.border-b {
+  border-bottom-width: 1px;
+}
+
+.border-gray-200 {
+  border-color: #e5e7eb;
+}
+
+.bg-gray-50 {
+  background-color: #f9fafb;
+}
+
+.border {
+  border-width: 1px;
+}
+
+.overflow-auto {
+  overflow: auto;
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+
+.flex-1 {
+  flex: 1 1 0%;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.text-lg {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.text-gray-900 {
+  color: #111827;
+}
+
+.text-gray-500 {
+  color: #6b7280;
+}
+
+.text-gray-600 {
+  color: #4b5563;
+}
+
+.text-gray-400 {
+  color: #9ca3af;
+}
+
+.text-green-600 {
+  color: #059669;
+}
+
+.text-red-600 {
+  color: #dc2626;
+}
+
+.text-green-500 {
+  color: #10b981;
+}
+
+.text-red-500 {
+  color: #ef4444;
+}
+
+.w-5 {
+  width: 1.25rem;
+}
+
+.h-5 {
+  height: 1.25rem;
+}
+
+.w-2 {
+  width: 0.5rem;
+}
+
+.h-2 {
+  height: 0.5rem;
+}
+
+.rounded-full {
+  border-radius: 9999px;
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.whitespace-pre {
+  white-space: pre;
 }

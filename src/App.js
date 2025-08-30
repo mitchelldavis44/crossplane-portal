@@ -71,6 +71,26 @@ const CustomNode = ({ data, id, selected }) => {
     return '#f59e0b'; // yellow for partial success
   };
 
+  // Get resource type color
+  const getResourceTypeColor = () => {
+    switch (data.resourceType) {
+      case 'claim': return '#6366f1'; // blue
+      case 'composite': return '#8b5cf6'; // purple
+      case 'managed': return '#94a3b8'; // gray
+      default: return '#6b7280';
+    }
+  };
+
+  // Get resource type label
+  const getResourceTypeLabel = () => {
+    switch (data.resourceType) {
+      case 'claim': return 'Claim';
+      case 'composite': return 'XR';
+      case 'managed': return 'MR';
+      default: return 'Resource';
+    }
+  };
+
   return (
     <div 
       style={{
@@ -78,7 +98,7 @@ const CustomNode = ({ data, id, selected }) => {
         paddingRight: '24px',
         borderRadius: '8px',
         background: 'white',
-        border: `1px solid ${selected ? '#3b82f6' : '#e2e8f0'}`,
+        border: `2px solid ${selected ? '#3b82f6' : getResourceTypeColor()}`,
         boxShadow: selected ? '0 4px 6px -1px rgba(59, 130, 246, 0.1), 0 2px 4px -1px rgba(59, 130, 246, 0.06)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
         position: 'relative',
         minWidth: '200px',
@@ -101,15 +121,58 @@ const CustomNode = ({ data, id, selected }) => {
         }}
       />
 
+      {/* Resource type badge */}
+      <div 
+        style={{
+          position: 'absolute',
+          top: '-8px',
+          left: '12px',
+          background: getResourceTypeColor(),
+          color: 'white',
+          fontSize: '10px',
+          fontWeight: '600',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px'
+        }}
+      >
+        {getResourceTypeLabel()}
+      </div>
+
       {/* Resource label */}
       <div style={{ 
         maxWidth: 'calc(100% - 20px)',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap'
+        whiteSpace: 'nowrap',
+        marginTop: '8px'
       }}>
         {data.label}
       </div>
+
+      {/* Nested dependency indicator */}
+      {data.hasDependencies && (
+        <div 
+          style={{
+            position: 'absolute',
+            bottom: '-8px',
+            left: '12px',
+            background: '#10b981',
+            color: 'white',
+            fontSize: '10px',
+            fontWeight: '600',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          <span>📦</span>
+          <span>Nested</span>
+        </div>
+      )}
 
       <Handle type="target" position="top" style={{ visibility: 'hidden' }} />
       <Handle type="source" position="bottom" style={{ visibility: 'hidden' }} />
@@ -121,6 +184,7 @@ const GraphView = ({ traceData }) => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [expandedNodes, setExpandedNodes] = useState(new Set());
 
   const nodeTypes = useMemo(() => ({
     custom: CustomNode
@@ -131,19 +195,169 @@ const GraphView = ({ traceData }) => {
     event.preventDefault();
     event.stopPropagation();
     
-    let resourceData;
-    if (clickedNode.id === 'claim') {
-      resourceData = traceData.claim;
-    } else if (clickedNode.id === 'composite') {
-      resourceData = traceData.composite;
-    } else if (clickedNode.id.startsWith('managed-')) {
-      const index = parseInt(clickedNode.id.split('-')[1]);
-      resourceData = traceData.managedResources[index];
+    // Handle node selection for resource details
+    const resourceData = clickedNode.data.resourceData;
+    if (resourceData) {
+      setSelectedNode(prev => prev?.id === clickedNode.id ? null : { ...clickedNode, resourceData });
+    }
+  }, []);
+
+  // Recursively build nodes and edges from trace data
+  const buildGraphFromTrace = useCallback((traceData, startX = 400, startY = 50, level = 0, parentId = null) => {
+    const newNodes = [];
+    const newEdges = [];
+    const verticalSpacing = 120;
+    const horizontalSpacing = 300;
+    
+    if (!traceData) return { nodes: newNodes, edges: newEdges };
+
+    // Add claim node if it exists
+    if (traceData.claim && traceData.claim.kind && traceData.claim.metadata?.name) {
+      const claimId = 'claim';
+      newNodes.push({
+        id: claimId,
+        type: 'custom',
+        position: { x: startX, y: startY },
+        data: { 
+          label: `${traceData.claim.kind}/${traceData.claim.metadata.name}`,
+          synced: traceData.claim.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True',
+          ready: traceData.claim.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True',
+          resourceData: traceData.claim,
+          resourceType: 'claim',
+          level: level
+        }
+      });
+
+      // Add edge from parent if exists
+      if (parentId) {
+        newEdges.push({
+          id: `edge-${parentId}-${claimId}`,
+          source: parentId,
+          target: claimId,
+          type: 'smoothstep',
+          animated: true,
+          style: { stroke: '#6366f1' }
+        });
+      }
+
+      // Add composite node if it exists
+      if (traceData.composite && traceData.composite.kind && traceData.composite.metadata?.name) {
+        const compositeId = 'composite';
+        newNodes.push({
+          id: compositeId,
+          type: 'custom',
+          position: { x: startX, y: startY + verticalSpacing },
+          data: { 
+            label: `${traceData.composite.kind}/${traceData.composite.metadata.name}`,
+            synced: traceData.composite.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True',
+            ready: traceData.composite.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True',
+            resourceData: traceData.composite,
+            resourceType: 'composite',
+            level: level + 1
+          }
+        });
+
+        // Add edge from claim to composite
+        newEdges.push({
+          id: `edge-${claimId}-${compositeId}`,
+          source: claimId,
+          target: compositeId,
+          type: 'smoothstep',
+          animated: true,
+          style: { stroke: '#6366f1' }
+        });
+
+        // Process managed resources and nested dependencies
+        if (Array.isArray(traceData.managedResources) && traceData.managedResources.length > 0) {
+          const validResources = traceData.managedResources.filter(resource => 
+            resource && resource.kind && resource.metadata?.name
+          );
+          
+          // Calculate positions for managed resources
+          const totalWidth = (validResources.length - 1) * horizontalSpacing;
+          const startXPos = startX - (totalWidth / 2);
+          
+          validResources.forEach((resource, index) => {
+            const resourceId = `managed-${level}-${index}`;
+            const xPos = startXPos + (index * horizontalSpacing);
+            const yPos = startY + (verticalSpacing * 2);
+
+            newNodes.push({
+              id: resourceId,
+              type: 'custom',
+              position: { x: xPos, y: yPos },
+              data: { 
+                label: `${resource.kind}/${resource.metadata.name}`,
+                synced: resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True',
+                ready: resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True',
+                resourceData: resource,
+                resourceType: 'managed',
+                level: level + 2,
+                hasDependencies: resource.dependencies && resource.dependencies.length > 0
+              }
+            });
+
+            // Add edge from composite to managed resource
+            newEdges.push({
+              id: `edge-${compositeId}-${resourceId}`,
+              source: compositeId,
+              target: resourceId,
+              type: 'smoothstep',
+              animated: true,
+              style: { stroke: '#8b5cf6' }
+            });
+
+            // Process nested dependencies recursively
+            if (resource.dependencies && resource.dependencies.length > 0) {
+              const nestedResult = buildGraphFromTrace(
+                { managedResources: resource.dependencies },
+                xPos,
+                yPos + verticalSpacing,
+                level + 3,
+                resourceId
+              );
+              
+              // Adjust positions of nested nodes to avoid overlap
+              nestedResult.nodes.forEach(node => {
+                node.position.x += (index - validResources.length / 2) * 50;
+              });
+              
+              newNodes.push(...nestedResult.nodes);
+              newEdges.push(...nestedResult.edges);
+            }
+
+            // Add dependency edges between managed resources at the same level
+            if (Array.isArray(resource.references)) {
+              resource.references.forEach(ref => {
+                if (!ref || !ref.kind || !ref.name) return;
+                
+                const depIndex = validResources.findIndex(r => 
+                  r.kind === ref.kind && r.metadata?.name === ref.name
+                );
+                
+                if (depIndex !== -1) {
+                  newEdges.push({
+                    id: `edge-${resourceId}-managed-${level}-${depIndex}`,
+                    source: `managed-${level}-${depIndex}`,
+                    target: resourceId,
+                    type: 'smoothstep',
+                    animated: false,
+                    style: { 
+                      stroke: '#94a3b8',
+                      strokeDasharray: '5,5'
+                    },
+                    label: 'depends on'
+                  });
+                }
+              });
+            }
+          });
+        }
+      }
     }
 
-    console.log('Setting selected node with resource data:', resourceData);
-    setSelectedNode(prev => prev?.id === clickedNode.id ? null : { ...clickedNode, resourceData });
-  }, [traceData]);
+    return { nodes: newNodes, edges: newEdges };
+  }, []);
 
   useEffect(() => {
     if (!traceData) {
@@ -151,126 +365,16 @@ const GraphView = ({ traceData }) => {
       return;
     }
 
-    console.log('Rendering graph with trace data:', traceData);
-    const newNodes = [];
-    const newEdges = [];
+    console.log('Rendering enhanced graph with trace data:', traceData);
     
-    const centerX = 400;
-    const verticalSpacing = 120; // Increased vertical spacing between levels
+    // Build the complete graph including nested dependencies
+    const { nodes: newNodes, edges: newEdges } = buildGraphFromTrace(traceData);
     
-    // Add claim node if it exists and has required fields
-    if (traceData.claim && traceData.claim.kind && traceData.claim.metadata?.name) {
-      newNodes.push({
-        id: 'claim',
-        type: 'custom',
-        position: { x: centerX, y: 50 },
-        data: { 
-          label: `${traceData.claim.kind}/${traceData.claim.metadata.name}`,
-          synced: traceData.claim.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True',
-          ready: traceData.claim.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True',
-          resourceData: traceData.claim
-        }
-      });
-    }
-
-    // Add composite node if it exists and has required fields
-    if (traceData.composite && traceData.composite.kind && traceData.composite.metadata?.name) {
-      const compositeId = 'composite';
-      newNodes.push({
-        id: compositeId,
-        type: 'custom',
-        position: { x: centerX, y: 50 + verticalSpacing }, // Position below claim
-        data: { 
-          label: `${traceData.composite.kind}/${traceData.composite.metadata.name}`,
-          synced: traceData.composite.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True',
-          ready: traceData.composite.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True',
-          resourceData: traceData.composite
-        }
-      });
-
-      // Add edge from claim to composite if both exist
-      if (newNodes.find(n => n.id === 'claim')) {
-        newEdges.push({
-          id: 'edge-claim-composite',
-          source: 'claim',
-          target: compositeId,
-          type: 'smoothstep',
-          animated: true,
-          style: { stroke: '#6366f1' }
-        });
-      }
-
-      // Add managed resources if they exist
-      if (Array.isArray(traceData.managedResources) && traceData.managedResources.length > 0) {
-        const validResources = traceData.managedResources.filter(resource => 
-          resource && resource.kind && resource.metadata?.name
-        );
-        
-        const horizontalSpacing = 300; // Increased horizontal spacing between managed resources
-        const totalWidth = (validResources.length - 1) * horizontalSpacing;
-        const startX = centerX - (totalWidth / 2);
-        
-        validResources.forEach((resource, index) => {
-          const resourceId = `managed-${index}`;
-          const xPos = startX + (index * horizontalSpacing);
-          const yPos = 50 + (verticalSpacing * 2); // Position below composite
-
-          newNodes.push({
-            id: resourceId,
-            type: 'custom',
-            position: { x: xPos, y: yPos },
-            data: { 
-              label: `${resource.kind}/${resource.metadata.name}`,
-              synced: resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True',
-              ready: resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True',
-              resourceData: resource
-            }
-          });
-
-          // Add edge from composite to managed resource
-          newEdges.push({
-            id: `edge-composite-${resourceId}`,
-            source: compositeId,
-            target: resourceId,
-            type: 'smoothstep',
-            animated: true,
-            style: { stroke: '#8b5cf6' }
-          });
-
-          // Add dependency edges if they exist and are valid
-          if (Array.isArray(resource.references)) {
-            resource.references.forEach(ref => {
-              if (!ref || !ref.kind || !ref.name) return;
-              
-              const depIndex = validResources.findIndex(r => 
-                r.kind === ref.kind && r.metadata?.name === ref.name
-              );
-              
-              if (depIndex !== -1) {
-                newEdges.push({
-                  id: `edge-${resourceId}-managed-${depIndex}`,
-                  source: `managed-${depIndex}`,
-                  target: resourceId,
-                  type: 'smoothstep',
-                  animated: false,
-                  style: { 
-                    stroke: '#94a3b8',
-                    strokeDasharray: '5,5'
-                  },
-                  label: 'depends on'
-                });
-              }
-            });
-          }
-        });
-      }
-    }
-
-    console.log('Setting nodes:', newNodes);
-    console.log('Setting edges:', newEdges);
+    console.log('Setting enhanced nodes:', newNodes);
+    console.log('Setting enhanced edges:', newEdges);
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [traceData]);
+  }, [traceData, buildGraphFromTrace]);
 
   return (
     <div className="graph-container" style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -282,11 +386,11 @@ const GraphView = ({ traceData }) => {
         fitView
         fitViewOptions={{ 
           padding: 0.5,
-          minZoom: 0.5,
-          maxZoom: 1.5
+          minZoom: 0.3,
+          maxZoom: 2.0
         }}
-        minZoom={0.5}
-        maxZoom={1.5}
+        minZoom={0.3}
+        maxZoom={2.0}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={true}
@@ -300,19 +404,19 @@ const GraphView = ({ traceData }) => {
           marginRight: selectedNode ? '400px' : '0'
         }}
       >
-        <Background gap={24} />
-        <Controls 
-          position="bottom-right"
-          style={{ bottom: 40, right: selectedNode ? '440px' : '40px' }}
-        />
+        <Background />
+        <Controls />
         <MiniMap 
-          position="bottom-left"
-          style={{ bottom: 40, left: 40 }}
-          nodeColor={node => {
-            return node.data.ready && node.data.synced ? '#22c55e' : '#ef4444';
+          style={{ background: 'rgba(255, 255, 255, 0.8)' }}
+          nodeColor={(node) => {
+            if (node.data.resourceType === 'claim') return '#6366f1';
+            if (node.data.resourceType === 'composite') return '#8b5cf6';
+            return '#94a3b8';
           }}
         />
       </ReactFlow>
+
+      {/* Resource Details Panel */}
       {selectedNode && (
         <div
           style={{
