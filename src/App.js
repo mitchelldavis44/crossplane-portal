@@ -97,7 +97,7 @@ const CustomNode = ({ data, id, selected }) => {
         padding: '12px 16px',
         paddingRight: '24px',
         borderRadius: '8px',
-        background: 'white',
+        background: data.resourceType === 'composite' ? '#f8f7ff' : 'white',
         border: `2px solid ${selected ? '#3b82f6' : getResourceTypeColor()}`,
         boxShadow: selected ? '0 4px 6px -1px rgba(59, 130, 246, 0.1), 0 2px 4px -1px rgba(59, 130, 246, 0.06)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
         position: 'relative',
@@ -158,7 +158,7 @@ const CustomNode = ({ data, id, selected }) => {
             position: 'absolute',
             bottom: '-8px',
             left: '12px',
-            background: '#10b981',
+            background: data.resourceType === 'composite' ? '#8b5cf6' : '#10b981',
             color: 'white',
             fontSize: '10px',
             fontWeight: '600',
@@ -170,7 +170,7 @@ const CustomNode = ({ data, id, selected }) => {
           }}
         >
           <span>📦</span>
-          <span>Nested</span>
+          <span>{data.resourceType === 'composite' ? 'Nested XR' : 'Nested'}</span>
         </div>
       )}
 
@@ -282,6 +282,17 @@ const GraphView = ({ traceData }) => {
             const xPos = startXPos + (index * horizontalSpacing);
             const yPos = startY + (verticalSpacing * 2);
 
+            // Detect if this is actually a nested XR (Composite Resource) vs a true MR
+            const isNestedXR = resource.kind && (
+              resource.kind.startsWith('X') || // Crossplane XRs typically start with X
+              resource.kind.includes('Cluster') || // Common XR patterns
+              resource.kind.includes('Network') ||
+              resource.kind.includes('Database') ||
+              resource.kind.includes('Storage') ||
+              (resource.spec && resource.spec.resourceRefs) || // XRs have resourceRefs
+              (resource.status && resource.status.resourceRefs) // XRs have resourceRefs in status
+            );
+
             newNodes.push({
               id: resourceId,
               type: 'custom',
@@ -291,7 +302,7 @@ const GraphView = ({ traceData }) => {
                 synced: resource.status?.conditions?.find(c => c.type === 'Synced')?.status === 'True',
                 ready: resource.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True',
                 resourceData: resource,
-                resourceType: 'managed',
+                resourceType: isNestedXR ? 'composite' : 'managed',
                 level: level + 2,
                 hasDependencies: resource.dependencies && resource.dependencies.length > 0
               }
