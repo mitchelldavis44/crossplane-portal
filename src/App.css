@@ -61,31 +61,36 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Enhanced node styling */
+/* Improved graph layout and spacing */
 .graph-container .react-flow__node {
   transition: all 0.2s ease;
+  z-index: 1;
 }
 
 .graph-container .react-flow__node:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.graph-container .react-flow__node.selected {
   z-index: 10;
 }
 
-/* Edge styling */
+.graph-container .react-flow__node.selected {
+  z-index: 20;
+}
+
+/* Better edge styling */
 .graph-container .react-flow__edge {
   transition: stroke-width 0.2s ease;
+  z-index: 0;
 }
 
 .graph-container .react-flow__edge:hover {
   stroke-width: 3;
+  z-index: 5;
 }
 
 .graph-container .react-flow__edge.selected {
   stroke-width: 3;
+  z-index: 5;
 }
 
 /* Edge labels */
@@ -97,6 +102,17 @@
   font-weight: 500;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  z-index: 15;
+}
+
+/* Improved fit view behavior */
+.graph-container .react-flow__viewport {
+  transition: transform 0.3s ease;
+}
+
+/* Better node spacing */
+.graph-container .react-flow__renderer {
+  overflow: visible;
 }
 
 /* Adjust ReactFlow controls when panel is open */
