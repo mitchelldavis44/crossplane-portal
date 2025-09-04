@@ -169,7 +169,6 @@ const CustomNode = ({ data, id, selected }) => {
             gap: '4px'
           }}
         >
-          <span>📦</span>
           <span>{data.resourceType === 'composite' ? 'Nested XR' : 'Nested'}</span>
         </div>
       )}
@@ -206,8 +205,8 @@ const GraphView = ({ traceData }) => {
   const buildGraphFromTrace = useCallback((traceData, startX = 400, startY = 50, level = 0, parentId = null) => {
     const newNodes = [];
     const newEdges = [];
-    const verticalSpacing = 120;
-    const horizontalSpacing = 300;
+    const verticalSpacing = 140; // Increased vertical spacing
+    const horizontalSpacing = 350; // Increased horizontal spacing between nodes
     
     if (!traceData) return { nodes: newNodes, edges: newEdges };
 
@@ -273,7 +272,7 @@ const GraphView = ({ traceData }) => {
             resource && resource.kind && resource.metadata?.name
           );
           
-          // Calculate positions for managed resources
+          // Calculate positions for managed resources with better spacing
           const totalWidth = (validResources.length - 1) * horizontalSpacing;
           const startXPos = startX - (totalWidth / 2);
           
@@ -282,16 +281,31 @@ const GraphView = ({ traceData }) => {
             const xPos = startXPos + (index * horizontalSpacing);
             const yPos = startY + (verticalSpacing * 2);
 
+            // Debug logging for GKE resources
+            if (resource.kind && resource.kind.includes('GKE')) {
+              console.log('Processing GKE resource:', {
+                kind: resource.kind,
+                name: resource.metadata?.name,
+                hasDependencies: resource.dependencies && resource.dependencies.length > 0,
+                hasSpecRefs: resource.spec?.resourceRefs && resource.spec.resourceRefs.length > 0,
+                hasStatusRefs: resource.status?.resourceRefs && resource.status.resourceRefs.length > 0,
+                hasSpecResources: resource.spec?.resources && resource.spec.resources.length > 0,
+                hasStatusResources: resource.status?.resources && resource.status.resources.length > 0
+              });
+            }
+
             // Detect if this is actually a nested XR (Composite Resource) vs a true MR
             const isNestedXR = resource.kind && (
               resource.kind.startsWith('X') || // Crossplane XRs typically start with X
-              resource.kind.includes('Cluster') || // Common XR patterns
-              resource.kind.includes('Network') ||
-              resource.kind.includes('Database') ||
-              resource.kind.includes('Storage') ||
               (resource.spec && resource.spec.resourceRefs) || // XRs have resourceRefs
-              (resource.status && resource.status.resourceRefs) // XRs have resourceRefs in status
+              (resource.status && resource.status.resourceRefs) || // XRs have resourceRefs in status
+              (resource.spec && resource.spec.resources) || // Alternative XR pattern
+              (resource.status && resource.status.resources) // Alternative XR pattern
             );
+
+            if (isNestedXR) {
+              console.log('Detected nested XR:', resource.kind, 'with dependencies:', resource.dependencies?.length || 0);
+            }
 
             newNodes.push({
               id: resourceId,
@@ -318,7 +332,7 @@ const GraphView = ({ traceData }) => {
               style: { stroke: '#8b5cf6' }
             });
 
-            // Process nested dependencies recursively
+            // Process nested dependencies recursively with better positioning
             if (resource.dependencies && resource.dependencies.length > 0) {
               const nestedResult = buildGraphFromTrace(
                 { managedResources: resource.dependencies },
@@ -328,13 +342,87 @@ const GraphView = ({ traceData }) => {
                 resourceId
               );
               
-              // Adjust positions of nested nodes to avoid overlap
-              nestedResult.nodes.forEach(node => {
-                node.position.x += (index - validResources.length / 2) * 50;
+              // Better positioning for nested nodes to avoid overlap
+              nestedResult.nodes.forEach((node, nestedIndex) => {
+                // Spread nested nodes horizontally around the parent
+                const nestedSpacing = 200;
+                const nestedStartX = xPos - ((nestedResult.nodes.length - 1) * nestedSpacing) / 2;
+                node.position.x = nestedStartX + (nestedIndex * nestedSpacing);
               });
               
               newNodes.push(...nestedResult.nodes);
               newEdges.push(...nestedResult.edges);
+            }
+
+            // For nested XRs, also check if they have their own managed resources
+            if (isNestedXR && resource.spec?.resourceRefs && resource.spec.resourceRefs.length > 0) {
+              console.log('Processing nested XR spec.resourceRefs:', {
+                kind: resource.kind,
+                name: resource.metadata?.name,
+                refs: resource.spec.resourceRefs
+              });
+              
+              // For nested XRs, we need to use the dependencies that were already fetched
+              // The resource.dependencies array contains the actual fetched resources
+              if (resource.dependencies && resource.dependencies.length > 0) {
+                console.log('Using existing dependencies for nested XR:', resource.dependencies.length);
+                
+                // Build graph from the already-fetched dependencies
+                const nestedXRResult = buildGraphFromTrace(
+                  { managedResources: resource.dependencies },
+                  xPos,
+                  yPos + verticalSpacing,
+                  level + 3,
+                  resourceId
+                );
+                
+                console.log('Nested XR dependencies result:', nestedXRResult);
+                
+                // Position nested XR resources around the parent
+                nestedXRResult.nodes.forEach((node, nestedIndex) => {
+                  const nestedSpacing = 180;
+                  const nestedStartX = xPos - ((nestedXRResult.nodes.length - 1) * nestedSpacing) / 2;
+                  node.position.x = nestedStartX + (nestedIndex * nestedSpacing);
+                });
+                
+                newNodes.push(...nestedXRResult.nodes);
+                newEdges.push(...nestedXRResult.edges);
+              }
+            }
+
+            // Also check status.resourceRefs for nested XRs
+            if (isNestedXR && resource.status?.resourceRefs && resource.status.resourceRefs.length > 0) {
+              console.log('Processing nested XR status.resourceRefs:', {
+                kind: resource.kind,
+                name: resource.metadata?.name,
+                refs: resource.status.resourceRefs
+              });
+              
+              // For status.resourceRefs, we also need to use the already-fetched dependencies
+              // These should be in the resource.dependencies array as well
+              if (resource.dependencies && resource.dependencies.length > 0) {
+                console.log('Using existing dependencies for nested XR status:', resource.dependencies.length);
+                
+                const nestedStatusResult = buildGraphFromTrace(
+                  { managedResources: resource.dependencies },
+                  xPos,
+                  yPos + verticalSpacing,
+                  level + 3,
+                  resourceId
+                );
+                
+                console.log('Nested XR status dependencies result:', nestedStatusResult);
+                
+                // Position these resources as well
+                nestedStatusResult.nodes.forEach((node, nestedIndex) => {
+                  const nestedSpacing = 180;
+                  const nestedStartX = xPos - ((nestedStatusResult.nodes.length - 1) * nestedSpacing) / 2;
+                  node.position.x = nestedStartX + (nestedIndex * nestedSpacing);
+                });
+                
+                newNodes.push(...nestedStatusResult.nodes);
+                newEdges.push(...nestedStatusResult.edges);
+              }
             }
 
             // Add dependency edges between managed resources at the same level
@@ -355,6 +443,7 @@ const GraphView = ({ traceData }) => {
                     animated: false,
                     style: { 
                       stroke: '#94a3b8',
+                      strokeWidth: 2,
                       strokeDasharray: '5,5'
                     },
                     label: 'depends on'
@@ -370,6 +459,7 @@ const GraphView = ({ traceData }) => {
     return { nodes: newNodes, edges: newEdges };
   }, []);
 
+
   useEffect(() => {
     if (!traceData) {
       console.log('No trace data available');
@@ -377,18 +467,36 @@ const GraphView = ({ traceData }) => {
     }
 
     console.log('Rendering enhanced graph with trace data:', traceData);
+    console.log('Trace data structure:', {
+      hasClaim: !!traceData.claim,
+      hasComposite: !!traceData.composite,
+      hasComposition: !!traceData.composition,
+      managedResourcesCount: traceData.managedResources?.length || 0,
+      managedResources: traceData.managedResources?.map(r => ({
+        kind: r.kind,
+        name: r.metadata?.name,
+        hasDependencies: r.dependencies && r.dependencies.length > 0,
+        hasSpecRefs: r.spec?.resourceRefs && r.spec.resourceRefs.length > 0,
+        hasStatusRefs: r.status?.resourceRefs && r.status.resourceRefs.length > 0,
+        hasSpecResources: r.spec?.resources && r.spec.resources.length > 0,
+        hasStatusResources: r.status?.resources && r.status.resources.length > 0,
+        specKeys: r.spec ? Object.keys(r.spec) : [],
+        statusKeys: r.status ? Object.keys(r.status) : []
+      }))
+    });
     
     // Build the complete graph including nested dependencies
     const { nodes: newNodes, edges: newEdges } = buildGraphFromTrace(traceData);
     
-    console.log('Setting enhanced nodes:', newNodes);
-    console.log('Setting enhanced edges:', newEdges);
+    console.log('Final graph nodes:', newNodes);
+    console.log('Final graph edges:', newEdges);
     setNodes(newNodes);
     setEdges(newEdges);
   }, [traceData, buildGraphFromTrace]);
 
   return (
     <div className="graph-container" style={{ width: '100%', height: '100%', position: 'relative' }}>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -396,18 +504,19 @@ const GraphView = ({ traceData }) => {
         onNodeClick={onNodeClick}
         fitView
         fitViewOptions={{ 
-          padding: 0.5,
-          minZoom: 0.3,
-          maxZoom: 2.0
+          padding: 0.8,
+          minZoom: 0.4,
+          maxZoom: 2.0,
+          includeHiddenNodes: false
         }}
-        minZoom={0.3}
+        minZoom={0.4}
         maxZoom={2.0}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={true}
         defaultEdgeOptions={{
           type: 'smoothstep',
-          style: { stroke: '#94a3b8' }
+          style: { stroke: '#94a3b8', strokeWidth: 2 }
         }}
         style={{
           background: 'rgb(249, 250, 251)',
