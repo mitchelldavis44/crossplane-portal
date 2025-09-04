@@ -863,7 +863,7 @@ const TraceModal = ({ isOpen, onClose, claim }) => {
     };
   
     fetchTrace();
-  }, [isOpen, claim]);
+  }, [isOpen, claim?.metadata?.uid]);
 
   if (!isOpen) return null;
 
