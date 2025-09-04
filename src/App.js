@@ -183,7 +183,6 @@ const GraphView = ({ traceData }) => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [expandedNodes, setExpandedNodes] = useState(new Set());
 
   const nodeTypes = useMemo(() => ({
     custom: CustomNode
